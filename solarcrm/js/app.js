@@ -1,3 +1,15 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+const supabase = createClient(
+  'https://ovqwavrbxdplehvgplcv.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zMC'  // ← substitua pela sua chave anon
+)
+const { data: { session } } = await supabase.auth.getSession()
+if (!session) window.location.href = '/login.html'
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT') window.location.href = '/login.html'
+})
+
 // ============================================================
 //  SolarCRM — Controlador principal da aplicação
 // ============================================================
@@ -28,7 +40,6 @@ const App = {
     const navEl = document.querySelector(`.nav-item[data-page="${pageId}"]`);
     if (navEl) navEl.classList.add('active');
     this.render(pageId);
-    // Fechar sidebar em mobile ao navegar
     document.getElementById('sidebar').classList.remove('open');
   },
 
@@ -51,7 +62,6 @@ const App = {
     };
     content.innerHTML = builders[pageId] ? builders[pageId]() : '<p>Página não encontrada.</p>';
 
-    // Renderizar gráficos após inserção no DOM
     requestAnimationFrame(() => {
       if (pageId === 'dashboard') Charts.renderDashboard();
       if (pageId === 'inversores') Charts.renderInversores();
@@ -63,7 +73,6 @@ const App = {
     document.getElementById('menu-toggle').addEventListener('click', () => {
       document.getElementById('sidebar').classList.toggle('open');
     });
-    // Fechar ao clicar fora
     document.addEventListener('click', e => {
       const sidebar = document.getElementById('sidebar');
       const toggle = document.getElementById('menu-toggle');
@@ -93,7 +102,6 @@ const App = {
       this.salvarCliente();
     });
 
-    // Modal relatório
     const relOverlay = document.getElementById('modal-relatorio');
     document.getElementById('modal-rel-close').addEventListener('click', () => relOverlay.classList.remove('open'));
     document.getElementById('btn-cancel-rel').addEventListener('click', () => relOverlay.classList.remove('open'));
@@ -134,8 +142,6 @@ const App = {
 
     if (this.currentPage === 'clientes') this.render('clientes');
     if (this.currentPage === 'dashboard') this.render('dashboard');
-
-    // Atualizar badge de alertas na nav
     this.updateAlertBadge();
   },
 
@@ -146,14 +152,14 @@ const App = {
     const economia = DB.computeEconomia(c);
     const percMeta = Math.round((c.geracaoMes / c.metaMes) * 100);
     document.getElementById('preview-relatorio').innerHTML = `
-      <div style="background:var(--bg-secondary);border-radius:var(--radius-md);padding:14px;font-size:12px;line-height:1.8;">
+      <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px;font-size:12px;line-height:1.8;">
         <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Relatório Solar — Maio 2026</div>
-        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:12px;">Para: ${c.nome} &lt;${c.email}&gt; ${c.whats ? '· WhatsApp: ' + c.whats : ''}</div>
+        <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:12px;">Para: ${c.nome} &lt;${c.email}&gt; ${c.whats ? '· WhatsApp: ' + c.whats : ''}</div>
         <strong>Geração do mês:</strong> ${c.geracaoMes.toLocaleString('pt-BR')} kWh (${percMeta}% da meta)<br>
         <strong>Economia gerada:</strong> ${economia}<br>
         <strong>Status do sistema:</strong> ${c.statusLabel}<br>
         <strong>Inversor:</strong> ${c.inversor}<br><br>
-        <div style="color:var(--text-secondary);">Canais de envio: E-mail · ${c.whats ? 'WhatsApp · ' : ''}PDF</div>
+        <div style="color:var(--color-text-secondary);">Canais de envio: E-mail · ${c.whats ? 'WhatsApp · ' : ''}PDF</div>
       </div>`;
     document.getElementById('btn-enviar-preview').onclick = () => {
       document.getElementById('modal-relatorio').classList.remove('open');
@@ -172,14 +178,14 @@ const App = {
     const economia = DB.computeEconomia(exemplo);
     document.getElementById('preview-relatorio').innerHTML = `
       <div style="font-size:13px;font-weight:600;margin-bottom:10px;">${r.nome}</div>
-      <div style="background:var(--bg-secondary);border-radius:var(--radius-md);padding:14px;font-size:12px;line-height:1.8;">
+      <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px;font-size:12px;line-height:1.8;">
         <strong>Assunto:</strong> Seu relatório solar de maio 2026 — ${exemplo.nome}<br><br>
         Olá, <strong>${exemplo.nome}</strong>!<br>
         Em maio, sua usina solar gerou <strong>${exemplo.geracaoMes.toLocaleString('pt-BR')} kWh</strong>,
         representando uma economia de <strong>${economia}</strong>.<br><br>
         <strong>Desempenho:</strong> ${Math.round((exemplo.geracaoMes/exemplo.metaMes)*100)}% da meta mensal<br>
         <strong>Inversor:</strong> ${exemplo.inversor} · <strong>Status:</strong> ${exemplo.statusLabel}<br><br>
-        <span style="color:var(--teal);font-weight:600;">Ver relatório completo em PDF →</span>
+        <span style="color:#1D9E75;font-weight:600;">Ver relatório completo em PDF →</span>
       </div>`;
     document.getElementById('modal-relatorio').classList.add('open');
   },
@@ -188,7 +194,7 @@ const App = {
     document.getElementById('preview-relatorio').innerHTML = `
       <div style="padding:16px 0;">
         <div style="font-size:14px;font-weight:600;margin-bottom:12px;">Confirmar envio em massa</div>
-        <div style="background:var(--bg-secondary);border-radius:var(--radius-md);padding:14px;font-size:12px;line-height:1.9;">
+        <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px;font-size:12px;line-height:1.9;">
           <strong>Total de clientes:</strong> ${DB.clientes.length}<br>
           <strong>Canais ativos:</strong> E-mail · WhatsApp · PDF<br>
           <strong>Período:</strong> Maio 2026<br>
@@ -255,6 +261,11 @@ const App = {
   // ---- Configurações ----
   salvarConfig() {
     this.toast('Configurações salvas com sucesso!');
+  },
+
+  // ---- Logout ----
+  async logout() {
+    await supabase.auth.signOut()
   },
 
   // ---- Toast ----
