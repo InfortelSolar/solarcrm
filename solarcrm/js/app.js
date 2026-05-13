@@ -1,3 +1,6 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+const supabase = createClient('https://ovqwavrbxdplehvgplcv.supabase.co','SUA_CHAVE_ANON_PUBLIC')
+supabase.auth.getSession().then(({data:{session}})=>{ if(!session) window.location.href='/login.html' })
 // ============================================================
 //  SolarCRM — Controlador principal da aplicação
 // ============================================================
