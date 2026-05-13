@@ -1,21 +1,3 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-const supabase = createClient(
-  'https://ovqwavrbxdplehvgplcv.supabase.co',
-  'SUA_CHAVE_ANON_PUBLIC'
-)
-
-// Aguardar sessão antes de carregar o app
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
-    window.location.href = '/login.html'
-  }
-})
-
-const { data: { session } } = await supabase.auth.getSession()
-if (!session) {
-  window.location.href = '/login.html'
-}
-
 // ============================================================
 //  SolarCRM — Controlador principal da aplicação
 // ============================================================
@@ -24,7 +6,6 @@ const App = {
   currentPage: 'dashboard',
   toastTimer: null,
 
-  // ---- Inicialização ----
   init() {
     this.bindNav();
     this.bindModal();
@@ -33,7 +14,6 @@ const App = {
     this.render('dashboard');
   },
 
-  // ---- Navegação ----
   bindNav() {
     document.querySelectorAll('.nav-item[data-page]').forEach(el => {
       el.addEventListener('click', () => this.navTo(el.dataset.page));
@@ -56,7 +36,6 @@ const App = {
     };
     document.getElementById('ptitle').textContent = titles[pageId] || pageId;
     document.getElementById('pbread').textContent = '';
-
     const content = document.querySelector('.content');
     const builders = {
       dashboard: () => Pages.dashboard(),
@@ -67,14 +46,12 @@ const App = {
       config: () => Pages.config(),
     };
     content.innerHTML = builders[pageId] ? builders[pageId]() : '<p>Página não encontrada.</p>';
-
     requestAnimationFrame(() => {
       if (pageId === 'dashboard') Charts.renderDashboard();
       if (pageId === 'inversores') Charts.renderInversores();
     });
   },
 
-  // ---- Menu mobile ----
   bindMenu() {
     document.getElementById('menu-toggle').addEventListener('click', () => {
       document.getElementById('sidebar').classList.toggle('open');
@@ -88,7 +65,6 @@ const App = {
     });
   },
 
-  // ---- Modal Novo Cliente ----
   bindModal() {
     const overlay = document.getElementById('modal-cliente');
     document.getElementById('btn-novo-cliente').addEventListener('click', () => {
@@ -107,13 +83,12 @@ const App = {
       e.preventDefault();
       this.salvarCliente();
     });
-
     const relOverlay = document.getElementById('modal-relatorio');
     document.getElementById('modal-rel-close').addEventListener('click', () => relOverlay.classList.remove('open'));
     document.getElementById('btn-cancel-rel').addEventListener('click', () => relOverlay.classList.remove('open'));
     document.getElementById('btn-enviar-preview').addEventListener('click', () => {
       relOverlay.classList.remove('open');
-      this.toast('Relatórios enviados com sucesso para todos os canais!');
+      this.toast('Relatórios enviados com sucesso!');
     });
   },
 
@@ -123,7 +98,6 @@ const App = {
     });
   },
 
-  // ---- Clientes ----
   salvarCliente() {
     const dados = {
       nome: document.getElementById('f-nome').value.trim(),
@@ -135,23 +109,19 @@ const App = {
       endereco: document.getElementById('f-endereco').value.trim(),
       inversor: document.getElementById('f-inversor').value,
     };
-
     if (!dados.nome || !dados.email || isNaN(dados.potencia)) {
-      this.toast('Preencha os campos obrigatórios: nome, e-mail e potência.', 'warn');
+      this.toast('Preencha os campos obrigatórios.', 'warn');
       return;
     }
-
     DB.addCliente(dados);
     document.getElementById('modal-cliente').classList.remove('open');
     document.getElementById('form-cliente').reset();
-    this.toast(`Cliente ${dados.nome} adicionado com sucesso!`);
-
+    this.toast(`Cliente ${dados.nome} adicionado!`);
     if (this.currentPage === 'clientes') this.render('clientes');
     if (this.currentPage === 'dashboard') this.render('dashboard');
     this.updateAlertBadge();
   },
 
-  // ---- Relatórios ----
   sendRelatorio(clienteId) {
     const c = DB.getCliente(clienteId);
     if (!c) return;
@@ -160,12 +130,11 @@ const App = {
     document.getElementById('preview-relatorio').innerHTML = `
       <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px;font-size:12px;line-height:1.8;">
         <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Relatório Solar — Maio 2026</div>
-        <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:12px;">Para: ${c.nome} &lt;${c.email}&gt; ${c.whats ? '· WhatsApp: ' + c.whats : ''}</div>
-        <strong>Geração do mês:</strong> ${c.geracaoMes.toLocaleString('pt-BR')} kWh (${percMeta}% da meta)<br>
-        <strong>Economia gerada:</strong> ${economia}<br>
-        <strong>Status do sistema:</strong> ${c.statusLabel}<br>
-        <strong>Inversor:</strong> ${c.inversor}<br><br>
-        <div style="color:var(--color-text-secondary);">Canais de envio: E-mail · ${c.whats ? 'WhatsApp · ' : ''}PDF</div>
+        <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:12px;">Para: ${c.nome} &lt;${c.email}&gt;</div>
+        <strong>Geração:</strong> ${c.geracaoMes.toLocaleString('pt-BR')} kWh (${percMeta}% da meta)<br>
+        <strong>Economia:</strong> ${economia}<br>
+        <strong>Status:</strong> ${c.statusLabel}<br>
+        <strong>Inversor:</strong> ${c.inversor}
       </div>`;
     document.getElementById('btn-enviar-preview').onclick = () => {
       document.getElementById('modal-relatorio').classList.remove('open');
@@ -177,7 +146,7 @@ const App = {
 
   previewRelatorio(relId) {
     const r = relId === 'preview'
-      ? { nome: 'Relatório de exemplo — Maio 2026', clientes: 1 }
+      ? { nome: 'Relatório de exemplo — Maio 2026' }
       : DB.relatorios.find(r => r.id === relId);
     if (!r) return;
     const exemplo = DB.clientes[0];
@@ -185,13 +154,10 @@ const App = {
     document.getElementById('preview-relatorio').innerHTML = `
       <div style="font-size:13px;font-weight:600;margin-bottom:10px;">${r.nome}</div>
       <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px;font-size:12px;line-height:1.8;">
-        <strong>Assunto:</strong> Seu relatório solar de maio 2026 — ${exemplo.nome}<br><br>
         Olá, <strong>${exemplo.nome}</strong>!<br>
-        Em maio, sua usina solar gerou <strong>${exemplo.geracaoMes.toLocaleString('pt-BR')} kWh</strong>,
-        representando uma economia de <strong>${economia}</strong>.<br><br>
-        <strong>Desempenho:</strong> ${Math.round((exemplo.geracaoMes/exemplo.metaMes)*100)}% da meta mensal<br>
-        <strong>Inversor:</strong> ${exemplo.inversor} · <strong>Status:</strong> ${exemplo.statusLabel}<br><br>
-        <span style="color:#1D9E75;font-weight:600;">Ver relatório completo em PDF →</span>
+        Geração: <strong>${exemplo.geracaoMes.toLocaleString('pt-BR')} kWh</strong><br>
+        Economia: <strong>${economia}</strong><br>
+        Status: ${exemplo.statusLabel}
       </div>`;
     document.getElementById('modal-relatorio').classList.add('open');
   },
@@ -201,29 +167,26 @@ const App = {
       <div style="padding:16px 0;">
         <div style="font-size:14px;font-weight:600;margin-bottom:12px;">Confirmar envio em massa</div>
         <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px;font-size:12px;line-height:1.9;">
-          <strong>Total de clientes:</strong> ${DB.clientes.length}<br>
-          <strong>Canais ativos:</strong> E-mail · WhatsApp · PDF<br>
-          <strong>Período:</strong> Maio 2026<br>
-          <strong>Agendado para:</strong> Envio imediato<br>
+          <strong>Total:</strong> ${DB.clientes.length} clientes<br>
+          <strong>Canais:</strong> E-mail · WhatsApp · PDF<br>
+          <strong>Período:</strong> Maio 2026
         </div>
       </div>`;
     document.getElementById('btn-enviar-preview').onclick = () => {
       document.getElementById('modal-relatorio').classList.remove('open');
-      this.toast(`${DB.clientes.length} relatórios enviados com sucesso!`);
+      this.toast(`${DB.clientes.length} relatórios enviados!`);
     };
     document.getElementById('modal-relatorio').classList.add('open');
   },
 
   customizarTemplate() {
-    this.toast('Editor de template: adicione seu logo e cores no arquivo css/style.css');
+    this.toast('Personalize em css/style.css');
   },
 
-  // ---- Alertas ----
   diagnosticarAlerta(id) {
     const a = DB.alertas.find(a => a.id === id);
     if (!a) return;
-    this.toast(`Diagnóstico: ${a.titulo.split(' — ')[0]}`);
-    alert(`Diagnóstico — ${a.titulo}\n\n${a.detalhe}\n\nRecomendação: Verifique o inversor no local, confira a conexão de rede e o disjuntor. Contate o cliente se necessário.`);
+    alert(`Diagnóstico — ${a.titulo}\n\n${a.detalhe}`);
   },
 
   resolverAlerta(id) {
@@ -235,7 +198,7 @@ const App = {
     const el = document.getElementById('alerta-' + id);
     if (el) el.style.display = 'none';
     this.updateAlertBadge();
-    this.toast(`Alerta resolvido: ${a.titulo.split(':')[0]}`);
+    this.toast(`Alerta resolvido!`);
   },
 
   updateAlertBadge() {
@@ -246,12 +209,11 @@ const App = {
     }
   },
 
-  // ---- Inversores ----
   addInversor() {
     const fab = document.getElementById('inv-fab')?.value;
     const serial = document.getElementById('inv-serial')?.value?.trim();
     const clienteId = document.getElementById('inv-cliente')?.value;
-    if (!serial) { this.toast('Informe o número de série do inversor.', 'warn'); return; }
+    if (!serial) { this.toast('Informe o número de série.', 'warn'); return; }
     const cliente = DB.getCliente(clienteId);
     DB.inversores.push({
       id: 'inv' + Date.now(), sigla: fab.slice(0, 3).toUpperCase(),
@@ -260,21 +222,14 @@ const App = {
       cliente: cliente?.nome || 'Desconhecido', serial,
       api: fab + ' API', geracaoHoje: 0, temp: null, potencia: 0,
     });
-    this.toast(`Inversor ${fab} adicionado com sucesso!`);
+    this.toast(`Inversor ${fab} adicionado!`);
     this.render('inversores');
   },
 
-  // ---- Configurações ----
   salvarConfig() {
-    this.toast('Configurações salvas com sucesso!');
+    this.toast('Configurações salvas!');
   },
 
-  // ---- Logout ----
-  async logout() {
-    await supabase.auth.signOut()
-  },
-
-  // ---- Toast ----
   toast(msg, type = 'ok') {
     const el = document.getElementById('toast');
     el.textContent = msg;
@@ -285,5 +240,4 @@ const App = {
   },
 };
 
-// ---- Boot ----
 document.addEventListener('DOMContentLoaded', () => App.init());
