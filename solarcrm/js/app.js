@@ -1,18 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const supabase = createClient(
   'https://ovqwavrbxdplehvgplcv.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zMC'  // ← substitua pela sua chave anon
+  'SUA_CHAVE_ANON_PUBLIC'
 )
+
+// Aguardar sessão antes de carregar o app
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
+    window.location.href = '/login.html'
+  }
+})
+
 const { data: { session } } = await supabase.auth.getSession()
 if (!session) {
-  await new Promise(resolve => setTimeout(resolve, 500))
-  const { data: { session: s2 } } = await supabase.auth.getSession()
-  if (!s2) window.location.href = '/login.html'
+  window.location.href = '/login.html'
 }
-
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_OUT') window.location.href = '/login.html'
-})
 
 // ============================================================
 //  SolarCRM — Controlador principal da aplicação
