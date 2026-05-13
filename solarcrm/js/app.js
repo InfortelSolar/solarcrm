@@ -4,7 +4,10 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zMC'  // ← substitua pela sua chave anon
 )
 const { data: { session } } = await supabase.auth.getSession()
-if (!session) window.location.href = '/login.html'
+if (!session) {
+  const { data: { session: newSession } } = await supabase.auth.getSession()
+  if (!newSession) window.location.href = '/login.html'
+}
 
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT') window.location.href = '/login.html'
