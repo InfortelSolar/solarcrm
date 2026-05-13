@@ -311,7 +311,7 @@
     togglePass.addEventListener('click', () => {
       const isPass = senhaInput.type === 'password'
       senhaInput.type = isPass ? 'text' : 'password'
-      eyeIcon.className = isPass ? 'ti ti-eye-off' : 'ti ti-eye'
+      eyeIcon.setAttribute('class', isPass ? 'ti ti-eye-off' : 'ti ti-eye')
     })
 
     // Enter para logar
