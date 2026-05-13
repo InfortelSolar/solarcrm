@@ -1,194 +1,132 @@
 // ============================================================
-//  SolarCRM — Dados e estado da aplicação
+//  SolarCRM — Camada de dados (Supabase)
 // ============================================================
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const supabase = createClient(
+  'https://ovqwavrbxdplehvgplcv.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM'
+)
+
 const DB = {
-
-  clientes: [
-    {
-      id: 'js', iniciais: 'JS', avBg: '#E1F5EE', avCor: '#0F6E56',
-      nome: 'João Santos', tipo: 'Residencial',
-      endereco: 'Rua das Palmeiras, 123 · João Pessoa — PB',
-      email: 'joao.santos@email.com', whats: '(83) 99123-4567',
-      dataInstalacao: '14/03/2023', tarifa: 0.82,
-      potencia: 5.4, paineis: 12, inversor: 'Growatt MIN 5000TL',
-      status: 'ok', statusLabel: 'Normal',
-      geracaoHoje: 52, metaMes: 1300, geracaoMes: 1240,
-      hist12: [820, 790, 950, 1100, 1040, 1190, 1250, 1180, 1090, 1150, 1240, 1240],
-      performance: 94,
-      relatoriosEnviados: [
-        { mes: 'Abril 2026', data: '01/05/2026', canais: 'E-mail · WhatsApp · PDF' },
-        { mes: 'Março 2026', data: '01/04/2026', canais: 'E-mail · WhatsApp · PDF' },
-        { mes: 'Fevereiro 2026', data: '01/03/2026', canais: 'E-mail · WhatsApp · PDF' },
-      ]
-    },
-    {
-      id: 'ml', iniciais: 'ML', avBg: '#E6F1FB', avCor: '#185FA5',
-      nome: 'Maria Lima', tipo: 'Residencial',
-      endereco: 'Av. Epitácio Pessoa, 55 · João Pessoa — PB',
-      email: 'maria.lima@email.com', whats: '(83) 98765-1234',
-      dataInstalacao: '20/07/2022', tarifa: 0.82,
-      potencia: 8.1, paineis: 18, inversor: 'SolarEdge SE8K',
-      status: 'ok', statusLabel: 'Normal',
-      geracaoHoje: 71, metaMes: 1900, geracaoMes: 1780,
-      hist12: [1200, 1180, 1350, 1500, 1450, 1620, 1700, 1650, 1580, 1640, 1750, 1780],
-      performance: 88,
-      relatoriosEnviados: [
-        { mes: 'Abril 2026', data: '01/05/2026', canais: 'E-mail · WhatsApp · PDF' },
-        { mes: 'Março 2026', data: '01/04/2026', canais: 'E-mail · PDF' },
-      ]
-    },
-    {
-      id: 'xyz', iniciais: 'XZ', avBg: '#FAEEDA', avCor: '#854F0B',
-      nome: 'Empresa XYZ', tipo: 'Comercial',
-      endereco: 'Rua do Comércio, 200 · Guarabira — PB',
-      email: 'energia@empresaxyz.com.br', whats: '(83) 3271-0000',
-      dataInstalacao: '10/01/2023', tarifa: 0.76,
-      potencia: 24, paineis: 60, inversor: 'Fronius Symo 24.0',
-      status: 'warn', statusLabel: 'Alerta',
-      geracaoHoje: 136, metaMes: 5800, geracaoMes: 3240,
-      hist12: [4100, 3900, 4500, 5000, 4800, 5300, 5500, 5200, 4900, 5100, 4200, 3240],
-      performance: 76,
-      relatoriosEnviados: [
-        { mes: 'Abril 2026', data: '01/05/2026', canais: 'E-mail · WhatsApp · PDF' },
-      ]
-    },
-    {
-      id: 'cn', iniciais: 'CN', avBg: '#FCEBEB', avCor: '#A32D2D',
-      nome: 'Carlos Neto', tipo: 'Residencial',
-      endereco: 'Rua das Flores, 45 · Guarabira — PB',
-      email: 'carlos.neto@email.com', whats: '(83) 99456-7890',
-      dataInstalacao: '05/09/2023', tarifa: 0.82,
-      potencia: 3.3, paineis: 8, inversor: 'Growatt MIN 3000TL',
-      status: 'err', statusLabel: 'Crítico',
-      geracaoHoje: 0, metaMes: 720, geracaoMes: 0,
-      hist12: [480, 460, 530, 610, 590, 640, 660, 630, 600, 620, 580, 0],
-      performance: 0,
-      relatoriosEnviados: [
-        { mes: 'Abril 2026', data: '01/05/2026', canais: 'E-mail · PDF' },
-      ]
-    },
-    {
-      id: 'ac', iniciais: 'AC', avBg: '#E1F5EE', avCor: '#0F6E56',
-      nome: 'Ana Costa', tipo: 'Residencial',
-      endereco: 'Travessa das Mangueiras, 12 · Campina Grande — PB',
-      email: 'ana.costa@email.com', whats: '(83) 99321-0987',
-      dataInstalacao: '22/11/2022', tarifa: 0.82,
-      potencia: 6.6, paineis: 15, inversor: 'SolarEdge SE6K',
-      status: 'ok', statusLabel: 'Normal',
-      geracaoHoje: 44, metaMes: 1500, geracaoMes: 1050,
-      hist12: [980, 960, 1100, 1250, 1200, 1350, 1400, 1330, 1200, 1270, 1120, 1050],
-      performance: 61,
-      relatoriosEnviados: [
-        { mes: 'Abril 2026', data: '01/05/2026', canais: 'E-mail · WhatsApp · PDF' },
-        { mes: 'Março 2026', data: '01/04/2026', canais: 'E-mail · WhatsApp · PDF' },
-      ]
-    },
-  ],
-
-  inversores: [
-    {
-      id: 'inv1', sigla: 'GRW', bgCol: '#E1F5EE', txtCol: '#0F6E56',
-      modelo: 'Growatt MIN 5000TL', status: 'ok', statusLabel: 'Online',
-      cliente: 'João Santos', serial: 'GW2023051234', api: 'Growatt API v1.2',
-      geracaoHoje: 52, temp: 49.2, potencia: 5.0,
-    },
-    {
-      id: 'inv2', sigla: 'FRN', bgCol: '#E6F1FB', txtCol: '#185FA5',
-      modelo: 'Fronius Symo 24.0', status: 'warn', statusLabel: 'Alerta',
-      cliente: 'Empresa XYZ', serial: 'FR20220867', api: 'SolarAPI v2',
-      geracaoHoje: 136, temp: 51.7, potencia: 24.0,
-    },
-    {
-      id: 'inv3', sigla: 'GRW', bgCol: '#FCEBEB', txtCol: '#A32D2D',
-      modelo: 'Growatt MIN 3000TL', status: 'err', statusLabel: 'Offline',
-      cliente: 'Carlos Neto', serial: 'GW2021094521', api: 'Sem resposta há 6h',
-      geracaoHoje: 0, temp: null, potencia: 3.0,
-    },
-    {
-      id: 'inv4', sigla: 'SE', bgCol: '#EAF3DE', txtCol: '#3B6D11',
-      modelo: 'SolarEdge SE8K', status: 'ok', statusLabel: 'Online',
-      cliente: 'Maria Lima', serial: 'SE2024010033', api: 'SetApp API',
-      geracaoHoje: 71, temp: 47.1, potencia: 8.0,
-    },
-    {
-      id: 'inv5', sigla: 'SE', bgCol: '#EAF3DE', txtCol: '#3B6D11',
-      modelo: 'SolarEdge SE6K', status: 'ok', statusLabel: 'Online',
-      cliente: 'Ana Costa', serial: 'SE2023080044', api: 'SetApp API',
-      geracaoHoje: 44, temp: 45.8, potencia: 6.0,
-    },
-  ],
-
-  alertas: [
-    {
-      id: 'a1', tipo: 'err', icon: 'ti-alert-circle',
-      titulo: 'Crítico: Inversor Growatt MIN 3000TL offline — Carlos Neto',
-      detalhe: 'Hoje 08:14 · Sem comunicação há 6h · Possível falha de rede ou hardware',
-      acao: 'Diagnóstico',
-      prompt: 'Diagnóstico completo para inversor Growatt MIN 3000TL offline do cliente Carlos Neto: causas possíveis, checklist de verificação no local e orientações para o cliente.'
-    },
-    {
-      id: 'a2', tipo: 'err', icon: 'ti-bolt-off',
-      titulo: 'Crítico: Produção zero desde as 13h — Ana Costa (string 2)',
-      detalhe: 'Hoje 13:00 · Restante do sistema normal · Possível módulo ou disjuntor',
-      acao: 'Diagnosticar',
-      prompt: 'Diagnóstico para string 2 com produção zero na cliente Ana Costa, sistema SolarEdge SE8K: causas possíveis e plano de ação detalhado.'
-    },
-    {
-      id: 'a3', tipo: 'warn', icon: 'ti-solar-electricity',
-      titulo: 'Atenção: Geração 40% abaixo do esperado — Empresa XYZ',
-      detalhe: 'Hoje 10:32 · Fronius Symo 24.0 · Possível sombreamento ou sujeira',
-      acao: 'Analisar',
-      prompt: 'Análise de queda de 40% na geração da Empresa XYZ com inversor Fronius Symo 24.0: causas prováveis, impacto financeiro e recomendações de manutenção.'
-    },
-    {
-      id: 'a4', tipo: 'warn', icon: 'ti-trending-down',
-      titulo: 'Atenção: Queda gradual de eficiência — João Santos (−8% em 30 dias)',
-      detalhe: 'Ontem 14:20 · Pode indicar degradação de módulos ou sujeira acumulada',
-      acao: 'Analisar',
-      prompt: 'Análise de queda gradual de 8% na eficiência solar de João Santos em 30 dias: diagnóstico, recomendação de manutenção preventiva e comunicado ao cliente.'
-    },
-  ],
-
+  clientes: [],
+  inversores: [],
+  alertas: [],
   dashKpis: {
-    geracaoHoje: 1847,
-    clientesAtivos: 38,
-    economiaMes: 9240,
-    alertasAtivos: 4,
-    geracaoDias: [210, 280, 320, 290, 340, 180, 200],
-    economiaMeses: [7200, 7600, 8100, 8700, 9240],
+    geracaoHoje: 0,
+    clientesAtivos: 0,
+    economiaMes: 0,
+    alertasAtivos: 0,
+    geracaoDias: [0,0,0,0,0,0,0],
+    economiaMeses: [0,0,0,0,0],
+  },
+  relatorios: [],
+
+  async load() {
+    // Carregar clientes
+    const { data: clientes } = await supabase
+      .from('clientes').select('*, inversores(*)')
+    this.clientes = (clientes || []).map(c => ({
+      id: c.id,
+      iniciais: c.nome.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(),
+      avBg: '#E1F5EE', avCor: '#0F6E56',
+      nome: c.nome,
+      tipo: c.tipo || 'Residencial',
+      endereco: c.endereco || '',
+      email: c.email,
+      whats: c.whatsapp || '',
+      dataInstalacao: c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '',
+      tarifa: c.tarifa || 0.82,
+      potencia: c.potencia || 0,
+      paineis: c.paineis || 0,
+      inversor: c.inversor || '',
+      status: c.status || 'ok',
+      statusLabel: c.status === 'err' ? 'Crítico' : c.status === 'warn' ? 'Alerta' : 'Normal',
+      geracaoHoje: c.inversores?.[0]?.geracao_hoje || 0,
+      metaMes: Math.round((c.potencia || 0) * 110),
+      geracaoMes: 0,
+      hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
+      performance: 0,
+      relatoriosEnviados: [],
+    }))
+
+    // Carregar inversores
+    const { data: inversores } = await supabase
+      .from('inversores').select('*, clientes(nome)')
+    this.inversores = (inversores || []).map(i => ({
+      id: i.id,
+      sigla: (i.fabricante || 'INV').slice(0,3).toUpperCase(),
+      bgCol: '#E1F5EE', txtCol: '#0F6E56',
+      modelo: i.modelo || '',
+      status: i.status || 'ok',
+      statusLabel: i.status === 'err' ? 'Offline' : i.status === 'warn' ? 'Alerta' : 'Online',
+      cliente: i.clientes?.nome || '',
+      serial: i.serial || '',
+      api: (i.fabricante || '') + ' API',
+      geracaoHoje: i.geracao_hoje || 0,
+      temp: i.temperatura || null,
+      potencia: 0,
+    }))
+
+    // Carregar alertas
+    const { data: alertas } = await supabase
+      .from('alertas').select('*, clientes(nome)')
+      .eq('resolvido', false)
+      .order('created_at', { ascending: false })
+    this.alertas = (alertas || []).map(a => ({
+      id: a.id,
+      tipo: a.tipo || 'warn',
+      icon: a.tipo === 'err' ? 'ti-alert-circle' : 'ti-alert-triangle',
+      titulo: a.titulo || '',
+      detalhe: a.detalhe || '',
+      acao: 'Diagnosticar',
+      prompt: a.titulo,
+    }))
+
+    // Atualizar KPIs
+    this.dashKpis.clientesAtivos = this.clientes.length
+    this.dashKpis.alertasAtivos = this.alertas.length
+    this.dashKpis.geracaoHoje = this.clientes.reduce((s,c) => s + (c.geracaoHoje||0), 0)
+    this.dashKpis.economiaMes = Math.round(this.clientes.reduce((s,c) => s + (c.geracaoHoje||0) * (c.tarifa||0.82) * 30, 0))
   },
 
-  relatorios: [
-    { id: 'r1', nome: 'Relatório Mensal — Abril 2026', clientes: 38, data: '01/05/2026', status: 'ok' },
-    { id: 'r2', nome: 'Relatório Mensal — Março 2026', clientes: 35, data: '01/04/2026', status: 'ok' },
-    { id: 'r3', nome: 'Relatório Mensal — Fevereiro 2026', clientes: 35, data: '01/03/2026', status: 'ok' },
-  ],
-
-  // Computed helpers
-  getCliente(id) { return this.clientes.find(c => c.id === id); },
+  getCliente(id) {
+    return this.clientes.find(c => c.id === id)
+  },
 
   computeEconomia(cliente) {
-    return (cliente.geracaoMes * cliente.tarifa).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return (cliente.geracaoMes * cliente.tarifa).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   },
 
   computeEconomiaHoje(cliente) {
-    return (cliente.geracaoHoje * cliente.tarifa).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return (cliente.geracaoHoje * cliente.tarifa).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   },
 
-  addCliente(dados) {
-    const id = 'c' + Date.now();
-    const initials = dados.nome.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
-    this.clientes.push({
-      id, iniciais: initials, avBg: '#E1F5EE', avCor: '#0F6E56',
-      status: 'ok', statusLabel: 'Normal',
-      geracaoHoje: 0, metaMes: Math.round(dados.potencia * 110),
-      geracaoMes: 0, hist12: new Array(12).fill(0), performance: 0,
-      relatoriosEnviados: [], dataInstalacao: new Date().toLocaleDateString('pt-BR'),
-      tarifa: 0.82,
-      ...dados
-    });
-    this.dashKpis.clientesAtivos++;
-    return id;
+  async addCliente(dados) {
+    const { data, error } = await supabase
+      .from('clientes')
+      .insert({
+        nome: dados.nome,
+        tipo: dados.tipo,
+        email: dados.email,
+        whatsapp: dados.whats,
+        endereco: dados.endereco,
+        potencia: dados.potencia,
+        paineis: dados.paineis,
+        inversor: dados.inversor,
+        tarifa: 0.82,
+        status: 'ok',
+      })
+      .select().single()
+    if (error) throw error
+    await this.load()
+    return data
   },
-};
+
+  async resolverAlerta(id) {
+    await supabase.from('alertas').update({ resolvido: true }).eq('id', id)
+    this.alertas = this.alertas.filter(a => a.id !== id)
+    this.dashKpis.alertasAtivos = this.alertas.length
+  },
+}
