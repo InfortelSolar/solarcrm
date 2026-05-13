@@ -5,8 +5,9 @@ const supabase = createClient(
 )
 const { data: { session } } = await supabase.auth.getSession()
 if (!session) {
-  const { data: { session: newSession } } = await supabase.auth.getSession()
-  if (!newSession) window.location.href = '/login.html'
+  await new Promise(resolve => setTimeout(resolve, 500))
+  const { data: { session: s2 } } = await supabase.auth.getSession()
+  if (!s2) window.location.href = '/login.html'
 }
 
 supabase.auth.onAuthStateChange((event, session) => {
