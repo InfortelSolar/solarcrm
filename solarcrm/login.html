@@ -308,11 +308,15 @@
     if (session) window.location.href = '/index.html'
 
     // Toggle senha visível
-    togglePass.addEventListener('click', () => {
-      const isPass = senhaInput.type === 'password'
-      senhaInput.type = isPass ? 'text' : 'password'
-      eyeIcon.setAttribute('class', isPass ? 'ti ti-eye-off' : 'ti ti-eye')
-    })
+togglePass.addEventListener('click', () => {
+  if (senhaInput.type === 'password') {
+    senhaInput.type = 'text'
+    eyeIcon.className = 'ti ti-eye-off'
+  } else {
+    senhaInput.type = 'password'
+    eyeIcon.className = 'ti ti-eye'
+  }
+})
 
     // Enter para logar
     senhaInput.addEventListener('keydown', e => {
