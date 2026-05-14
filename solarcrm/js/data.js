@@ -1,11 +1,6 @@
 // ============================================================
-//  SolarCRM — Camada de dados (Supabase)
+//  SolarCRM — Camada de dados
 // ============================================================
-
-const supabase = window.supabase.createClient(
-  'https://ovqwavrbxdplehvgplcv.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM'
-)
 
 const DB = {
   clientes: [],
@@ -20,77 +15,67 @@ const DB = {
     economiaMeses: [0,0,0,0,0],
   },
   relatorios: [],
+  _supabase: null,
 
-  async load() {
-    // Carregar clientes
-    const { data: clientes } = await supabase
-      .from('clientes').select('*, inversores(*)')
-    this.clientes = (clientes || []).map(c => ({
-      id: c.id,
-      iniciais: c.nome.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(),
-      avBg: '#E1F5EE', avCor: '#0F6E56',
-      nome: c.nome,
-      tipo: c.tipo || 'Residencial',
-      endereco: c.endereco || '',
-      email: c.email,
-      whats: c.whatsapp || '',
-      dataInstalacao: c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '',
-      tarifa: c.tarifa || 0.82,
-      potencia: c.potencia || 0,
-      paineis: c.paineis || 0,
-      inversor: c.inversor || '',
-      status: c.status || 'ok',
-      statusLabel: c.status === 'err' ? 'Crítico' : c.status === 'warn' ? 'Alerta' : 'Normal',
-      geracaoHoje: c.inversores?.[0]?.geracao_hoje || 0,
-      metaMes: Math.round((c.potencia || 0) * 110),
-      geracaoMes: 0,
-      hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
-      performance: 0,
-      relatoriosEnviados: [],
-    }))
+  init() {
+    this._supabase = window.supabase.createClient(
+      'https://ovqwavrbxdplehvgplcv.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM'
+    )
+  },
 
-    // Carregar inversores
-    const { data: inversores } = await supabase
-      .from('inversores').select('*, clientes(nome)')
-    this.inversores = (inversores || []).map(i => ({
-      id: i.id,
-      sigla: (i.fabricante || 'INV').slice(0,3).toUpperCase(),
-      bgCol: '#E1F5EE', txtCol: '#0F6E56',
-      modelo: i.modelo || '',
-      status: i.status || 'ok',
-      statusLabel: i.status === 'err' ? 'Offline' : i.status === 'warn' ? 'Alerta' : 'Online',
-      cliente: i.clientes?.nome || '',
-      serial: i.serial || '',
-      api: (i.fabricante || '') + ' API',
-      geracaoHoje: i.geracao_hoje || 0,
-      temp: i.temperatura || null,
-      potencia: 0,
-    }))
-
-    // Carregar alertas
-    const { data: alertas } = await supabase
-      .from('alertas').select('*, clientes(nome)')
-      .eq('resolvido', false)
-      .order('created_at', { ascending: false })
-    this.alertas = (alertas || []).map(a => ({
-      id: a.id,
-      tipo: a.tipo || 'warn',
-      icon: a.tipo === 'err' ? 'ti-alert-circle' : 'ti-alert-triangle',
-      titulo: a.titulo || '',
-      detalhe: a.detalhe || '',
-      acao: 'Diagnosticar',
-      prompt: a.titulo,
-    }))
-
-    // Atualizar KPIs
-    this.dashKpis.clientesAtivos = this.clientes.length
-    this.dashKpis.alertasAtivos = this.alertas.length
-    this.dashKpis.geracaoHoje = this.clientes.reduce((s,c) => s + (c.geracaoHoje||0), 0)
-    this.dashKpis.economiaMes = Math.round(this.clientes.reduce((s,c) => s + (c.geracaoHoje||0) * (c.tarifa||0.82) * 30, 0))
+  load() {
+    const self = this
+    return self._supabase.from('clientes').select('*, inversores(*)')
+      .then(function(res) {
+        self.clientes = (res.data || []).map(function(c) {
+          return {
+            id: c.id,
+            iniciais: c.nome.split(' ').slice(0,2).map(function(w){return w[0]}).join('').toUpperCase(),
+            avBg: '#E1F5EE', avCor: '#0F6E56',
+            nome: c.nome,
+            tipo: c.tipo || 'Residencial',
+            endereco: c.endereco || '',
+            email: c.email,
+            whats: c.whatsapp || '',
+            dataInstalacao: c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '',
+            tarifa: c.tarifa || 0.82,
+            potencia: c.potencia || 0,
+            paineis: c.paineis || 0,
+            inversor: c.inversor || '',
+            status: c.status || 'ok',
+            statusLabel: c.status === 'err' ? 'Crítico' : c.status === 'warn' ? 'Alerta' : 'Normal',
+            geracaoHoje: c.inversores && c.inversores[0] ? c.inversores[0].geracao_hoje || 0 : 0,
+            metaMes: Math.round((c.potencia || 0) * 110),
+            geracaoMes: 0,
+            hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
+            performance: 0,
+            relatoriosEnviados: [],
+          }
+        })
+        self.dashKpis.clientesAtivos = self.clientes.length
+        self.dashKpis.geracaoHoje = self.clientes.reduce(function(s,c){return s+(c.geracaoHoje||0)},0)
+        self.dashKpis.economiaMes = Math.round(self.clientes.reduce(function(s,c){return s+(c.geracaoHoje||0)*(c.tarifa||0.82)*30},0))
+        return self._supabase.from('alertas').select('*').eq('resolvido', false)
+      })
+      .then(function(res) {
+        const self2 = DB
+        self2.alertas = (res.data || []).map(function(a) {
+          return {
+            id: a.id,
+            tipo: a.tipo || 'warn',
+            icon: a.tipo === 'err' ? 'ti-alert-circle' : 'ti-alert-triangle',
+            titulo: a.titulo || '',
+            detalhe: a.detalhe || '',
+            acao: 'Diagnosticar',
+          }
+        })
+        self2.dashKpis.alertasAtivos = self2.alertas.length
+      })
   },
 
   getCliente(id) {
-    return this.clientes.find(c => c.id === id)
+    return this.clientes.find(function(c){return c.id === id})
   },
 
   computeEconomia(cliente) {
@@ -101,31 +86,32 @@ const DB = {
     return (cliente.geracaoHoje * cliente.tarifa).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   },
 
-  async addCliente(dados) {
-    const { data, error } = await supabase
-      .from('clientes')
-      .insert({
-        nome: dados.nome,
-        tipo: dados.tipo,
-        email: dados.email,
-        whatsapp: dados.whats,
-        endereco: dados.endereco,
-        potencia: dados.potencia,
-        paineis: dados.paineis,
-        inversor: dados.inversor,
-        tarifa: 0.82,
-        status: 'ok',
-      })
-      .select().single()
-    if (error) throw error
-    await this.load()
-    return data
+  addCliente(dados) {
+    const self = this
+    return self._supabase.from('clientes').insert({
+      nome: dados.nome,
+      tipo: dados.tipo,
+      email: dados.email,
+      whatsapp: dados.whats,
+      endereco: dados.endereco,
+      potencia: dados.potencia,
+      paineis: dados.paineis,
+      inversor: dados.inversor,
+      tarifa: 0.82,
+      status: 'ok',
+    }).select().single()
+    .then(function(res) {
+      if (res.error) throw res.error
+      return self.load()
+    })
   },
 
-  async resolverAlerta(id) 
-    await supabase.from('alertas').update({ resolvido: true }).eq('id', id)
-    this.alertas = this.alertas.filter(a => a.id !== id)
-    this.dashKpis.alertasAtivos = this.alertas.length
+  resolverAlerta(id) {
+    const self = this
+    return self._supabase.from('alertas').update({ resolvido: true }).eq('id', id)
+      .then(function() {
+        self.alertas = self.alertas.filter(function(a){return a.id !== id})
+        self.dashKpis.alertasAtivos = self.alertas.length
+      })
   },
-};
-window.DB = DB;
+}
