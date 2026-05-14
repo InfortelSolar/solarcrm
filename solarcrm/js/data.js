@@ -2,8 +2,6 @@
 //  SolarCRM — Camada de dados (Supabase)
 // ============================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
 const supabase = createClient(
   'https://ovqwavrbxdplehvgplcv.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM'
