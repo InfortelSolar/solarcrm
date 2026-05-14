@@ -122,9 +122,10 @@ const DB = {
     return data
   },
 
-  async resolverAlerta(id) {
+  async resolverAlerta(id) 
     await supabase.from('alertas').update({ resolvido: true }).eq('id', id)
     this.alertas = this.alertas.filter(a => a.id !== id)
     this.dashKpis.alertasAtivos = this.alertas.length
   },
-}
+};
+window.DB = DB;
