@@ -2,7 +2,7 @@
 //  SolarCRM — Camada de dados (Supabase)
 // ============================================================
 
-const supabase = createClient(
+const supabase = window.supabase.createClient(
   'https://ovqwavrbxdplehvgplcv.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM'
 )
