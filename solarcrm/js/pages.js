@@ -209,6 +209,9 @@ const Pages = {
   <button class="btn" onclick="App.editarCliente('${c.id}')">
     <i class="ti ti-pencil"></i> Editar
   </button>
+  <button class="btn" style="color:#E24B4A;border-color:#E24B4A;" onclick="App.excluirCliente('${c.id}', '${c.nome}')">
+    <i class="ti ti-trash"></i> Excluir
+  </button>
   <button class="btn btn-teal" onclick="App.sendRelatorio('${c.id}')">
     <i class="ti ti-send"></i> Enviar relatório
   </button>
