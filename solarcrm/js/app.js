@@ -7,12 +7,13 @@ const App = {
   toastTimer: null,
 
 async init() {
-  this.bindNav();
-  this.bindModal();
-  this.bindTopbar();
-  this.bindMenu();
-  await DB.load();
-  this.render('dashboard');
+  DB.init()
+  this.bindNav()
+  this.bindModal()
+  this.bindTopbar()
+  this.bindMenu()
+  await DB.load()
+  this.render('dashboard')
 },
 
   bindNav() {
