@@ -205,9 +205,14 @@ const Pages = {
             <span class="badge b-gray">${c.inversor}</span>
           </div>
         </div>
-        <button class="btn btn-teal" onclick="App.sendRelatorio('${c.id}')">
-          <i class="ti ti-send"></i> Enviar relatório
-        </button>
+<div style="display:flex;gap:8px;">
+  <button class="btn" onclick="App.editarCliente('${c.id}')">
+    <i class="ti ti-pencil"></i> Editar
+  </button>
+  <button class="btn btn-teal" onclick="App.sendRelatorio('${c.id}')">
+    <i class="ti ti-send"></i> Enviar relatório
+  </button>
+</div>
       </div>
 
       <div class="info-grid">
