@@ -123,6 +123,45 @@ async init() {
     if (this.currentPage === 'dashboard') this.render('dashboard');
     this.updateAlertBadge();
   },
+  
+  editarCliente(id) {
+  const c = DB.getCliente(id)
+  if (!c) return
+  document.getElementById('f-nome').value = c.nome
+  document.getElementById('f-tipo').value = c.tipo
+  document.getElementById('f-potencia').value = c.potencia
+  document.getElementById('f-paineis').value = c.paineis
+  document.getElementById('f-email').value = c.email
+  document.getElementById('f-whats').value = c.whats
+  document.getElementById('f-endereco').value = c.endereco
+  document.getElementById('f-inversor').value = c.inversor
+  document.getElementById('modal-cliente').classList.add('open')
+  document.getElementById('form-cliente').onsubmit = async (e) => {
+    e.preventDefault()
+    const dados = {
+      nome: document.getElementById('f-nome').value.trim(),
+      tipo: document.getElementById('f-tipo').value,
+      potencia: parseFloat(document.getElementById('f-potencia').value),
+      paineis: parseInt(document.getElementById('f-paineis').value),
+      email: document.getElementById('f-email').value.trim(),
+      whats: document.getElementById('f-whats').value.trim(),
+      endereco: document.getElementById('f-endereco').value.trim(),
+      inversor: document.getElementById('f-inversor').value,
+    }
+    DB._supabase.from('clientes').update({
+      nome: dados.nome, tipo: dados.tipo, email: dados.email,
+      whatsapp: dados.whats, endereco: dados.endereco,
+      potencia: dados.potencia, paineis: dados.paineis,
+      inversor: dados.inversor,
+    }).eq('id', id).then(() => {
+      document.getElementById('modal-cliente').classList.remove('open')
+      DB.load().then(() => {
+        this.render('clientes')
+        this.toast(`Cliente ${dados.nome} atualizado!`)
+      })
+    })
+  }
+},
 
 sendRelatorio(clienteId) {
   const c = DB.getCliente(clienteId)
