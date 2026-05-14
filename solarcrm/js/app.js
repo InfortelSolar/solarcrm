@@ -162,7 +162,18 @@ async init() {
     })
   }
 },
-
+  
+excluirCliente(id, nome) {
+  if (!confirm(`Tem certeza que deseja excluir o cliente ${nome}?`)) return
+  DB._supabase.from('clientes').delete().eq('id', id)
+    .then(() => {
+      DB.load().then(() => {
+        Pages.closePerfil()
+        this.render('clientes')
+        this.toast(`Cliente ${nome} excluído!`)
+      })
+    })
+},
 sendRelatorio(clienteId) {
   const c = DB.getCliente(clienteId)
   if (!c) return
