@@ -124,27 +124,55 @@ async init() {
     this.updateAlertBadge();
   },
 
-  sendRelatorio(clienteId) {
-    const c = DB.getCliente(clienteId);
-    if (!c) return;
-    const economia = DB.computeEconomia(c);
-    const percMeta = Math.round((c.geracaoMes / c.metaMes) * 100);
-    document.getElementById('preview-relatorio').innerHTML = `
-      <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px;font-size:12px;line-height:1.8;">
-        <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Relatório Solar — Maio 2026</div>
-        <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:12px;">Para: ${c.nome} &lt;${c.email}&gt;</div>
-        <strong>Geração:</strong> ${c.geracaoMes.toLocaleString('pt-BR')} kWh (${percMeta}% da meta)<br>
-        <strong>Economia:</strong> ${economia}<br>
-        <strong>Status:</strong> ${c.statusLabel}<br>
-        <strong>Inversor:</strong> ${c.inversor}
-      </div>`;
-    document.getElementById('btn-enviar-preview').onclick = () => {
-      document.getElementById('modal-relatorio').classList.remove('open');
-      c.relatoriosEnviados.unshift({ mes: 'Maio 2026', data: new Date().toLocaleDateString('pt-BR'), canais: 'E-mail · WhatsApp · PDF' });
-      this.toast(`Relatório enviado para ${c.nome}!`);
-    };
-    document.getElementById('modal-relatorio').classList.add('open');
-  },
+sendRelatorio(clienteId) {
+  const c = DB.getCliente(clienteId)
+  if (!c) return
+  const economia = DB.computeEconomia(c)
+  const percMeta = Math.round((c.geracaoMes / c.metaMes) * 100) || 0
+  document.getElementById('preview-relatorio').innerHTML = `
+    <div style="background:var(--bg-secondary);border-radius:8px;padding:14px;font-size:12px;line-height:1.8;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Relatório Solar — Maio 2026</div>
+      <div style="margin-bottom:8px;color:#666;">Para: ${c.nome} &lt;${c.email}&gt; ${c.whats ? '· WhatsApp: ' + c.whats : ''}</div>
+      <strong>Geração:</strong> ${c.geracaoMes} kWh (${percMeta}% da meta)<br>
+      <strong>Economia:</strong> ${economia}<br>
+      <strong>Status:</strong> ${c.statusLabel}<br>
+      <strong>Inversor:</strong> ${c.inversor}
+    </div>`
+  document.getElementById('btn-enviar-preview').onclick = () => {
+    document.getElementById('modal-relatorio').classList.remove('open')
+    this.toast('Enviando relatório...')
+    fetch('https://ovqwavrbxdplehvgplcv.supabase.co/functions/v1/send-relatorio', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer SUA_CHAVE_ANON_PUBLIC',
+      },
+      body: JSON.stringify({
+        mes: 'Maio 2026',
+        cliente: {
+          nome: c.nome,
+          email: c.email,
+          whats: c.whats,
+          geracaoMes: c.geracaoMes,
+          metaMes: c.metaMes,
+          tarifa: c.tarifa,
+          statusLabel: c.statusLabel,
+          inversor: c.inversor,
+        }
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        this.toast('Relatório enviado com sucesso!')
+      } else {
+        this.toast('Erro ao enviar. Tente novamente.', 'warn')
+      }
+    })
+    .catch(() => this.toast('Erro ao enviar. Tente novamente.', 'warn'))
+  }
+  document.getElementById('modal-relatorio').classList.add('open')
+},
 
   previewRelatorio(relId) {
     const r = relId === 'preview'
