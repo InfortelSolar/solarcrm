@@ -9,13 +9,14 @@ const App = {
   currentPage: 'dashboard',
   toastTimer: null,
 
-  init() {
-    this.bindNav();
-    this.bindModal();
-    this.bindTopbar();
-    this.bindMenu();
-    this.render('dashboard');
-  },
+async init() {
+  this.bindNav();
+  this.bindModal();
+  this.bindTopbar();
+  this.bindMenu();
+  await DB.load();
+  this.render('dashboard');
+},
 
   bindNav() {
     document.querySelectorAll('.nav-item[data-page]').forEach(el => {
