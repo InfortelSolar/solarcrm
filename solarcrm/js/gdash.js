@@ -26,10 +26,10 @@ const GDash = (() => {
       const status = (p.status || '').toUpperCase();
       const power  = parseFloat(p.power) || 0;
       metrics.totalPower += power;
-      if (status === 'OK')                    { metrics.online++; metrics.onlinePower += power; }
-      else if (status === 'OFFLINE')            metrics.offline++;
-      else if (status === 'ALARMING')           metrics.alarming++;
-      else if (status === 'NO_COMMUNICATION')   metrics.noComm++;
+      if (status === 'OK')                  { metrics.online++; metrics.onlinePower += power; }
+      else if (status === 'OFFLINE')          metrics.offline++;
+      else if (status === 'ALARMING')         metrics.alarming++;
+      else if (status === 'NO_COMMUNICATION') metrics.noComm++;
       if (p.alert || status !== 'OK') metrics.alerts.push(p);
       const mfr = p.manufacturer || 'Outros';
       metrics.byManufacturer[mfr] = (metrics.byManufacturer[mfr] || 0) + 1;
@@ -37,7 +37,6 @@ const GDash = (() => {
     return metrics;
   }
 
-  // Converte planta GDASH para formato DB.clientes
   function plantToCliente(p) {
     const status = (p.status || '').toUpperCase();
     const st = status === 'OK' ? 'ok' : status === 'ALARMING' ? 'err' : 'warn';
@@ -64,23 +63,22 @@ const GDash = (() => {
       metaMes: Math.round((parseFloat(p.power) || 0) * 110),
       geracaoMes: Math.round((parseFloat(p.power) || 0) * 110 * 0.9),
       hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
-      performance: st === 'ok' ? 90 : st === 'warn' ? 0 : 0,
+      performance: st === 'ok' ? 90 : 0,
       relatoriosEnviados: [],
     };
   }
 
-  // Converte planta GDASH para formato DB.inversores
   function plantToInversor(p, idx) {
     const status = (p.status || '').toUpperCase();
     const st = status === 'OK' ? 'ok' : status === 'ALARMING' ? 'err' : 'warn';
     const mfrColors = {
-      Solis:      { bg: '#E1F5EE', txt: '#0F6E56' },
-      Growatt:    { bg: '#E6F1FB', txt: '#185FA5' },
-      GoodWe:     { bg: '#FAEEDA', txt: '#854F0B' },
-      Fronius:    { bg: '#FCEBEB', txt: '#A32D2D' },
-      Solplanet:  { bg: '#EEEDFE', txt: '#534AB7' },
-      Kehua:      { bg: '#F1EFE8', txt: '#5F5E5A' },
-      Renac:      { bg: '#EAF3DE', txt: '#3B6D11' },
+      Solis:     { bg: '#E1F5EE', txt: '#0F6E56' },
+      Growatt:   { bg: '#E6F1FB', txt: '#185FA5' },
+      GoodWe:    { bg: '#FAEEDA', txt: '#854F0B' },
+      Fronius:   { bg: '#FCEBEB', txt: '#A32D2D' },
+      Solplanet: { bg: '#EEEDFE', txt: '#534AB7' },
+      Kehua:     { bg: '#F1EFE8', txt: '#5F5E5A' },
+      Renac:     { bg: '#EAF3DE', txt: '#3B6D11' },
     };
     const col = mfrColors[p.manufacturer] || { bg: '#F1EFE8', txt: '#5F5E5A' };
     return {
@@ -98,8 +96,7 @@ const GDash = (() => {
     };
   }
 
-  // Converte planta problemática para formato DB.alertas
-  function plantToAlerta(p, idx) {
+  function plantToAlerta(p) {
     const status = (p.status || '').toUpperCase();
     const tipo = status === 'ALARMING' ? 'err' : 'warn';
     return {
@@ -107,7 +104,7 @@ const GDash = (() => {
       tipo,
       icon: tipo === 'err' ? 'ti-alert-circle' : 'ti-alert-triangle',
       titulo: `${p.name}: ${status === 'ALARMING' ? 'Alarme ativo' : status === 'OFFLINE' ? 'Sistema offline' : 'Sem comunicação'}`,
-      detalhe: `${p.manufacturer} · ${p.power} kWp · Atualizado: ${new Date(p.updated_at).toLocaleString('pt-BR')}`,
+      detalhe: `${p.manufacturer} · ${p.power} kWp · ${new Date(p.updated_at).toLocaleString('pt-BR')}`,
       acao: 'Diagnosticar',
     };
   }
@@ -120,13 +117,15 @@ const GDash = (() => {
     GDash.fetchPlants().then(plants => {
       const m = GDash.calcMetrics(plants);
 
+      // ── Marca GDASH como carregado ──
+      window._gdashLoaded = true;
+
       // ── Popula DB com dados reais do GDASH ──
-      DB.clientes   = plants.map((p, i) => GDash.plantToCliente(p, i));
+      DB.clientes   = plants.map((p) => GDash.plantToCliente(p));
       DB.inversores = plants.map((p, i) => GDash.plantToInversor(p, i));
-      DB.alertas    = m.alerts.map((p, i) => GDash.plantToAlerta(p, i));
+      DB.alertas    = m.alerts.map((p) => GDash.plantToAlerta(p));
 
       // ── Atualiza KPIs ──
-      window._gdashLoaded = true;
       DB.dashKpis.clientesAtivos = m.total;
       DB.dashKpis.alertasAtivos  = m.alerts.length;
       DB.dashKpis.geracaoHoje    = parseFloat(m.totalPower.toFixed(2));
@@ -136,7 +135,7 @@ const GDash = (() => {
       const badge = document.getElementById('badge-alertas');
       if (badge) badge.textContent = m.alerts.length;
 
-// ── Re-renderiza página atual ──
+      // ── Re-renderiza página atual ──
       const content = document.querySelector('.content');
       if (content) {
         const activePage = document.querySelector('.nav-item.active');
