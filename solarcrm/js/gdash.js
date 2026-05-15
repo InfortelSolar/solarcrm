@@ -13,7 +13,7 @@
 const GDash = (() => {
   // ─── Configuração ────────────────────────────────────────────────────────────
   const API_KEY  = '3HnfW02lkFxhrG92G9Ek8';
-  const BASE_URL = 'https://public-api.gdash.io/api/v1';
+  const BASE_URL = '';
 
   // Cache simples para evitar chamadas repetidas (TTL: 5 minutos)
   let _cache = null;
