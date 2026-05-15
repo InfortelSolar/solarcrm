@@ -12,8 +12,10 @@ async init() {
   this.bindModal()
   this.bindTopbar()
   this.bindMenu()
-  await DB.load()
+  await GDash.load()
   this.render('dashboard')
+  const badge = document.getElementById('badge-alertas')
+  if (badge) badge.textContent = DB.alertas.length
 },
 
   bindNav() {
