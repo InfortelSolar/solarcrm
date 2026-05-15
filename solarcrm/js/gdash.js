@@ -32,7 +32,7 @@ const GDash = (() => {
       return _cache;
     }
 
-    const res = await fetch(`${BASE_URL}/solar/plants?apikey=${API_KEY}`);
+    const res = await fetch('/api/gdash');
     if (!res.ok) throw new Error(`GDASH API error: ${res.status}`);
 
     const json = await res.json();
