@@ -309,11 +309,11 @@ const GDash = (() => {
       const badge = document.getElementById('badge-alertas');
       if (badge) badge.textContent = m.alerts.length;
 
-      const content = document.querySelector('.content');
-      if (content && content.innerHTML.includes('grid-metrics')) {
-        content.innerHTML = Pages.dashboard();
-        Charts.init();
-      }
+const content = document.querySelector('.content');
+if (content) {
+  content.innerHTML = Pages.dashboard();
+  if (typeof Charts !== 'undefined') Charts.init();
+}
 
       console.log('[GDash] Dados reais injetados:', {
         online:   m.online,
