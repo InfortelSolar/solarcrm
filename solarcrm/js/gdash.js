@@ -312,7 +312,8 @@ const GDash = (() => {
 const content = document.querySelector('.content');
 if (content) {
   content.innerHTML = Pages.dashboard();
-  if (typeof Charts !== 'undefined') Charts.init();
+  if (typeof Charts !== 'undefined' && typeof Charts.init === 'function') Charts.init();
+else if (typeof Charts !== 'undefined' && typeof Charts.renderDashboard === 'function') Charts.renderDashboard();
 }
 
       console.log('[GDash] Dados reais injetados:', {
