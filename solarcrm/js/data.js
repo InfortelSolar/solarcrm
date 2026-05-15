@@ -70,7 +70,20 @@ const DB = {
             acao: 'Diagnosticar',
           }
         })
-        self2.dashKpis.alertasAtivos = self2.alertas.length
+       self2.dashKpis.alertasAtivos = self2.alertas.length
+
+        // Só re-renderiza se o GDASH ainda não carregou
+        if (!window._gdashLoaded) {
+          const content = document.querySelector('.content');
+          if (content && content.innerHTML.includes('grid-metrics')) {
+            content.innerHTML = Pages.dashboard();
+            if (typeof Charts !== 'undefined') {
+              setTimeout(() => {
+                if (typeof Charts.init === 'function') Charts.init();
+              }, 50);
+            }
+          }
+        }
       })
   },
 
