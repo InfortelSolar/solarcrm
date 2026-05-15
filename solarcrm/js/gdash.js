@@ -44,14 +44,10 @@ const GDash = (() => {
     const bgMap = { ok: '#E1F5EE', warn: '#FAEEDA', err: '#FCEBEB' };
     const corMap = { ok: '#0F6E56', warn: '#854F0B', err: '#A32D2D' };
     return {
-      id: p.id,
-      iniciais: initials,
+      id: p.id, iniciais: initials,
       avBg: bgMap[st], avCor: corMap[st],
-      nome: p.name,
-      tipo: 'Solar',
-      endereco: p.credential || '',
-      email: p.credential || '',
-      whats: '',
+      nome: p.name, tipo: 'Solar',
+      endereco: p.credential || '', email: p.credential || '', whats: '',
       dataInstalacao: p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '',
       tarifa: 0.82,
       potencia: parseFloat(p.power) || 0,
@@ -100,8 +96,7 @@ const GDash = (() => {
     const status = (p.status || '').toUpperCase();
     const tipo = status === 'ALARMING' ? 'err' : 'warn';
     return {
-      id: p.id,
-      tipo,
+      id: p.id, tipo,
       icon: tipo === 'err' ? 'ti-alert-circle' : 'ti-alert-triangle',
       titulo: `${p.name}: ${status === 'ALARMING' ? 'Alarme ativo' : status === 'OFFLINE' ? 'Sistema offline' : 'Sem comunicação'}`,
       detalhe: `${p.manufacturer} · ${p.power} kWp · ${new Date(p.updated_at).toLocaleString('pt-BR')}`,
@@ -109,54 +104,18 @@ const GDash = (() => {
     };
   }
 
-  return { fetchPlants, calcMetrics, plantToCliente, plantToInversor, plantToAlerta };
-})();
+  async function load() {
+    const plants = await fetchPlants();
+    const m = calcMetrics(plants);
+    DB.clientes   = plants.map((p) => plantToCliente(p));
+    DB.inversores = plants.map((p, i) => plantToInversor(p, i));
+    DB.alertas    = m.alerts.map((p) => plantToAlerta(p));
+    DB.dashKpis.clientesAtivos = m.total;
+    DB.dashKpis.alertasAtivos  = m.alerts.length;
+    DB.dashKpis.geracaoHoje    = parseFloat(m.totalPower.toFixed(2));
+    DB.dashKpis.economiaMes    = Math.round(m.onlinePower * 0.82 * 30);
+    console.log('[GDash] OK:', { total: m.total, online: m.online, offline: m.offline, alertas: m.alerts.length });
+  }
 
-(function autoInit() {
-  document.addEventListener('DOMContentLoaded', () => {
-    GDash.fetchPlants().then(plants => {
-      const m = GDash.calcMetrics(plants);
-
-      // ── Marca GDASH como carregado ──
-      window._gdashLoaded = true;
-
-      // ── Popula DB com dados reais do GDASH ──
-      DB.clientes   = plants.map((p) => GDash.plantToCliente(p));
-      DB.inversores = plants.map((p, i) => GDash.plantToInversor(p, i));
-      DB.alertas    = m.alerts.map((p) => GDash.plantToAlerta(p));
-
-      // ── Atualiza KPIs ──
-      DB.dashKpis.clientesAtivos = m.total;
-      DB.dashKpis.alertasAtivos  = m.alerts.length;
-      DB.dashKpis.geracaoHoje    = parseFloat(m.totalPower.toFixed(2));
-      DB.dashKpis.economiaMes    = Math.round(m.onlinePower * 0.82 * 30);
-
-      // ── Atualiza badge alertas ──
-      const badge = document.getElementById('badge-alertas');
-      if (badge) badge.textContent = m.alerts.length;
-
-      // ── Re-renderiza página atual ──
-      const content = document.querySelector('.content');
-      if (content) {
-        const activePage = document.querySelector('.nav-item.active');
-        const page = activePage ? activePage.getAttribute('data-page') : 'dashboard';
-        if (typeof Pages[page] === 'function') {
-          content.innerHTML = Pages[page]();
-          if (page === 'dashboard' && typeof Charts !== 'undefined') {
-            setTimeout(() => {
-              if (typeof Charts.init === 'function') Charts.init();
-              else if (typeof Charts.renderDashboard === 'function') Charts.renderDashboard();
-            }, 50);
-          }
-        }
-      }
-
-      console.log('[GDash] OK:', {
-        total: m.total, online: m.online,
-        offline: m.offline, alarming: m.alarming,
-        alertas: m.alerts.length,
-      });
-
-    }).catch(err => console.error('[GDash] Erro:', err));
-  });
+  return { fetchPlants, calcMetrics, plantToCliente, plantToInversor, plantToAlerta, load };
 })();
