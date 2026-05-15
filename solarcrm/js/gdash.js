@@ -303,8 +303,12 @@ const GDash = (() => {
     GDash.fetchPlants().then(plants => {
       const m = GDash.calcMetrics(plants);
 
-      DB.dashKpis.clientesAtivos = m.online;
-      DB.dashKpis.alertasAtivos  = m.alerts.length;
+// Só atualiza se o Supabase ainda não carregou clientes
+if (DB.clientes.length === 0) {
+  DB.dashKpis.clientesAtivos = m.online;
+}
+// Alertas: soma Supabase + GDASH
+DB.dashKpis.alertasAtivos = DB.alertas.length + m.offline + m.alarming;
 
       const badge = document.getElementById('badge-alertas');
       if (badge) badge.textContent = m.alerts.length;
