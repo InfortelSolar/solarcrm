@@ -138,14 +138,17 @@ const GDash = (() => {
       // ── Re-renderiza página atual ──
       const content = document.querySelector('.content');
       if (content) {
-        content.innerHTML = Pages.dashboard();
-        if (typeof Charts !== 'undefined') {
-          setTimeout(() => {
-            if (typeof Charts.init === 'function') Charts.init();
-            else if (typeof Charts.renderDashboard === 'function') Charts.renderDashboard();
-          }, 50);
-        }
-      }
+const activePage = document.querySelector('.nav-item.active');
+const page = activePage ? activePage.getAttribute('data-page') : 'dashboard';
+if (typeof Pages[page] === 'function') {
+  content.innerHTML = Pages[page]();
+  if (page === 'dashboard' && typeof Charts !== 'undefined') {
+    setTimeout(() => {
+      if (typeof Charts.init === 'function') Charts.init();
+      else if (typeof Charts.renderDashboard === 'function') Charts.renderDashboard();
+    }, 50);
+  }
+}
 
       console.log('[GDash] OK:', {
         total: m.total, online: m.online,
