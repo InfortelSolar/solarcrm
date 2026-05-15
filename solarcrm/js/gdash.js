@@ -126,6 +126,7 @@ const GDash = (() => {
       DB.alertas    = m.alerts.map((p, i) => GDash.plantToAlerta(p, i));
 
       // ── Atualiza KPIs ──
+      window._gdashLoaded = true;
       DB.dashKpis.clientesAtivos = m.total;
       DB.dashKpis.alertasAtivos  = m.alerts.length;
       DB.dashKpis.geracaoHoje    = parseFloat(m.totalPower.toFixed(2));
