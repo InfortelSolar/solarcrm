@@ -298,13 +298,30 @@ const GDash = (() => {
   };
 })();
 
-// Auto-inicializa se o atributo data-gdash-auto estiver no <script>
-// Ex: <script src="gdash.js" data-gdash-auto></script>
 (function autoInit() {
-  const me = document.currentScript;
-  if (me && me.hasAttribute('data-gdash-auto')) {
-    document.addEventListener('DOMContentLoaded', () => {
-      GDash.init({ autoRefresh: true });
-    });
-  }
+  document.addEventListener('DOMContentLoaded', () => {
+    GDash.fetchPlants().then(plants => {
+      const m = GDash.calcMetrics(plants);
+
+      DB.dashKpis.clientesAtivos = m.online;
+      DB.dashKpis.alertasAtivos  = m.alerts.length;
+
+      const badge = document.getElementById('badge-alertas');
+      if (badge) badge.textContent = m.alerts.length;
+
+      const content = document.querySelector('.content');
+      if (content && content.innerHTML.includes('grid-metrics')) {
+        content.innerHTML = Pages.dashboard();
+        Charts.init();
+      }
+
+      console.log('[GDash] Dados reais injetados:', {
+        online:   m.online,
+        offline:  m.offline,
+        alarming: m.alarming,
+        alerts:   m.alerts.length,
+      });
+
+    }).catch(err => console.error('[GDash] Erro:', err));
+  });
 })();
