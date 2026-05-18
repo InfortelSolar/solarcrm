@@ -21,27 +21,33 @@ const Pages = {
   // ---- Dashboard ----
   dashboard() {
     const d = DB.dashKpis;
+    const criticos = DB.alertas.filter(a => a.tipo === 'err').length;
+    const alertasSub = criticos > 0 ? `${criticos} críticos` : 'Monitorando';
+    const alertasClass = criticos > 0 ? 'err' : 'ok';
+
+    const alertasRecentes = DB.alertas.slice(0, 3);
+
     return `
     <div class="grid-metrics">
       <div class="mcard">
         <div class="mcard-label"><i class="ti ti-bolt" style="color:#1D9E75;"></i>Geração hoje</div>
         <div class="mcard-val">${d.geracaoHoje.toLocaleString('pt-BR')} kWh</div>
-        <div class="mcard-sub ok">↑ 12% vs ontem</div>
+        <div class="mcard-sub ok">Potência total instalada</div>
       </div>
       <div class="mcard">
         <div class="mcard-label"><i class="ti ti-users"></i>Clientes ativos</div>
         <div class="mcard-val">${d.clientesAtivos}</div>
-        <div class="mcard-sub ok">↑ 3 este mês</div>
+        <div class="mcard-sub ok">Plantas monitoradas</div>
       </div>
       <div class="mcard">
         <div class="mcard-label"><i class="ti ti-coin"></i>Economia / mês</div>
         <div class="mcard-val">R$ ${d.economiaMes.toLocaleString('pt-BR')}</div>
-        <div class="mcard-sub ok">↑ 8% vs abril</div>
+        <div class="mcard-sub ok">Estimativa mensal</div>
       </div>
       <div class="mcard">
         <div class="mcard-label"><i class="ti ti-alert-triangle" style="color:#EF9F27;"></i>Alertas ativos</div>
         <div class="mcard-val">${d.alertasAtivos}</div>
-        <div class="mcard-sub warn">2 críticos</div>
+        <div class="mcard-sub ${alertasClass}">${alertasSub}</div>
       </div>
     </div>
 
@@ -52,9 +58,7 @@ const Pages = {
           <div class="card-meta">kWh/dia</div>
         </div>
         <div class="chart-wrap">
-          <canvas id="chart-geracao-dias" role="img" aria-label="Geração de energia diária nos últimos 7 dias">
-            Seg 210, Ter 280, Qua 320, Qui 290, Sex 340, Sáb 180, Dom 200 kWh.
-          </canvas>
+          <canvas id="chart-geracao-dias" role="img" aria-label="Geração de energia diária nos últimos 7 dias"></canvas>
         </div>
       </div>
       <div class="card mb-0">
@@ -62,7 +66,7 @@ const Pages = {
           <div class="card-title">Performance por cliente</div>
           <div class="card-meta">% da meta de geração</div>
         </div>
-        ${DB.clientes.map(c => `
+        ${DB.clientes.slice(0, 15).map(c => `
           <div class="prow">
             <div class="plabel">
               <span>${c.nome}</span>
@@ -81,14 +85,15 @@ const Pages = {
           <div class="card-meta">R$ / mês</div>
         </div>
         <div class="chart-wrap">
-          <canvas id="chart-economia-meses" role="img" aria-label="Economia acumulada mensal em 2026">
-            Jan R$7.200, Fev R$7.600, Mar R$8.100, Abr R$8.700, Mai R$9.240.
-          </canvas>
+          <canvas id="chart-economia-meses" role="img" aria-label="Economia acumulada mensal em 2026"></canvas>
         </div>
       </div>
       <div class="card mb-0">
-        <div class="card-hdr"><div class="card-title">Alertas recentes</div></div>
-        ${DB.alertas.slice(0, 3).map(a => `
+        <div class="card-hdr">
+          <div class="card-title">Alertas recentes</div>
+          <button class="btn btn-sm" onclick="App.navTo('alertas')">Ver todos</button>
+        </div>
+        ${alertasRecentes.length > 0 ? alertasRecentes.map(a => `
           <div class="alert-item a-${a.tipo}">
             <i class="ti ${a.icon}"></i>
             <div class="atxt" style="flex:1;">
@@ -97,20 +102,26 @@ const Pages = {
             </div>
             <button class="btn btn-sm" onclick="App.navTo('alertas')">Ver</button>
           </div>
-        `).join('')}
+        `).join('') : '<div class="text-muted" style="padding:16px 0;font-size:12px;">Nenhum alerta ativo.</div>'}
       </div>
     </div>`;
   },
 
   // ---- Lista de clientes ----
   clientes() {
+    const tipos = [...new Set(DB.clientes.map(c => c.tipo))];
+    const residencial = DB.clientes.filter(c => c.tipo === 'Residencial').length;
+    const comercial = DB.clientes.filter(c => c.tipo === 'Comercial').length;
+    const solar = DB.clientes.filter(c => c.tipo === 'Solar').length;
+    const comAlertas = DB.clientes.filter(c => c.status !== 'ok').length;
+
     const rows = DB.clientes.map(c => `
       <div class="trow" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr;" onclick="Pages.openPerfil('${c.id}')">
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="avatar" style="background:${c.avBg};color:${c.avCor};">${c.iniciais}</div>
           <div>
             <div class="font-bold">${c.nome}</div>
-            <div class="text-muted" style="font-size:10px;">${c.tipo} · ${c.potencia} kWp</div>
+            <div class="text-muted" style="font-size:10px;">${c.inversor} · ${c.potencia} kWp</div>
           </div>
         </div>
         <div class="col-hide">${c.potencia} kWp · ${c.paineis} painéis</div>
@@ -128,9 +139,10 @@ const Pages = {
     <div id="lista-clientes">
       <div class="tab-bar">
         <div class="tab active" onclick="Pages.filterClientes('todos', this)">Todos (${DB.clientes.length})</div>
-        <div class="tab" onclick="Pages.filterClientes('Residencial', this)">Residencial (${DB.clientes.filter(c=>c.tipo==='Residencial').length})</div>
-        <div class="tab" onclick="Pages.filterClientes('Comercial', this)">Comercial (${DB.clientes.filter(c=>c.tipo==='Comercial').length})</div>
-        <div class="tab" onclick="Pages.filterClientes('alertas', this)">Alertas (${DB.clientes.filter(c=>c.status!=='ok').length})</div>
+        ${solar > 0 ? `<div class="tab" onclick="Pages.filterClientes('Solar', this)">Solar (${solar})</div>` : ''}
+        ${residencial > 0 ? `<div class="tab" onclick="Pages.filterClientes('Residencial', this)">Residencial (${residencial})</div>` : ''}
+        ${comercial > 0 ? `<div class="tab" onclick="Pages.filterClientes('Comercial', this)">Comercial (${comercial})</div>` : ''}
+        <div class="tab" onclick="Pages.filterClientes('alertas', this)">Alertas (${comAlertas})</div>
       </div>
       <div class="card">
         <div class="thdr" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr;">
@@ -159,7 +171,7 @@ const Pages = {
           <div class="avatar" style="background:${c.avBg};color:${c.avCor};">${c.iniciais}</div>
           <div>
             <div class="font-bold">${c.nome}</div>
-            <div class="text-muted" style="font-size:10px;">${c.tipo} · ${c.potencia} kWp</div>
+            <div class="text-muted" style="font-size:10px;">${c.inversor} · ${c.potencia} kWp</div>
           </div>
         </div>
         <div class="col-hide">${c.potencia} kWp · ${c.paineis} painéis</div>
@@ -198,28 +210,22 @@ const Pages = {
         <div class="profile-avatar" style="background:${c.avBg};color:${c.avCor};">${c.iniciais}</div>
         <div style="flex:1;">
           <div class="profile-name">${c.nome}</div>
-          <div class="profile-meta">${c.tipo} · ${c.endereco}</div>
+          <div class="profile-meta">${c.inversor} · ${c.potencia} kWp</div>
           <div class="profile-badges">
             ${this.badgeStatus(c.status, c.statusLabel)}
             <span class="badge b-blue">${c.potencia} kWp · ${c.paineis} painéis</span>
             <span class="badge b-gray">${c.inversor}</span>
           </div>
         </div>
-<div style="display:flex;gap:8px;">
-  <button class="btn" onclick="App.editarCliente('${c.id}')">
-    <i class="ti ti-pencil"></i> Editar
-  </button>
-  <button class="btn" style="color:#E24B4A;border-color:#E24B4A;" onclick="App.excluirCliente('${c.id}', '${c.nome}')">
-    <i class="ti ti-trash"></i> Excluir
-  </button>
-  <button class="btn btn-teal" onclick="App.sendRelatorio('${c.id}')">
-    <i class="ti ti-send"></i> Enviar relatório
-  </button>
-</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-teal" onclick="App.sendRelatorio('${c.id}')">
+            <i class="ti ti-send"></i> Enviar relatório
+          </button>
+        </div>
       </div>
 
       <div class="info-grid">
-        <div class="info-item"><div class="info-lbl">E-mail</div><div class="info-val">${c.email}</div></div>
+        <div class="info-item"><div class="info-lbl">E-mail</div><div class="info-val">${c.email || '—'}</div></div>
         <div class="info-item"><div class="info-lbl">WhatsApp</div><div class="info-val">${c.whats || '—'}</div></div>
         <div class="info-item"><div class="info-lbl">Data de instalação</div><div class="info-val">${c.dataInstalacao}</div></div>
         <div class="info-item"><div class="info-lbl">Tarifa de energia</div><div class="info-val">R$ ${c.tarifa.toFixed(2)} / kWh</div></div>
@@ -230,7 +236,7 @@ const Pages = {
           <div class="mcard-label">Geração hoje</div>
           <div class="mcard-val">${c.geracaoHoje} kWh</div>
           <div class="mcard-sub ${c.status === 'ok' ? 'ok' : c.status === 'warn' ? 'warn' : 'err'}">
-            ${c.status === 'err' ? 'Sistema offline' : c.status === 'warn' ? 'Abaixo da meta' : '↑ 8% vs ontem'}
+            ${c.status === 'err' ? 'Sistema offline' : c.status === 'warn' ? 'Abaixo da meta' : '↑ Normal'}
           </div>
         </div>
         <div class="mcard">
@@ -251,9 +257,7 @@ const Pages = {
           <div class="card-meta">kWh / mês</div>
         </div>
         <div class="chart-wrap">
-          <canvas id="chart-perfil-hist" role="img" aria-label="Histórico de geração mensal do cliente ${c.nome}">
-            Histórico de geração dos últimos 12 meses.
-          </canvas>
+          <canvas id="chart-perfil-hist" role="img" aria-label="Histórico de geração mensal do cliente ${c.nome}"></canvas>
         </div>
       </div>
 
@@ -279,8 +283,10 @@ const Pages = {
 
   // ---- Inversores ----
   inversores() {
-    const online = DB.inversores.filter(i => i.status === 'ok').length;
-    const offline = DB.inversores.filter(i => i.status === 'err').length;
+    const online  = DB.inversores.filter(i => i.status === 'ok').length;
+    const offline = DB.inversores.filter(i => i.status !== 'ok').length;
+    const fabricantes = [...new Set(DB.inversores.map(i => i.modelo.split(' ')[0]))];
+    const fabLabel = fabricantes.slice(0, 4).join(' · ');
 
     const cards = DB.inversores.map(i => `
       <div class="inv-card">
@@ -307,8 +313,8 @@ const Pages = {
     return `
     <div class="grid-3">
       <div class="mcard"><div class="mcard-label">Online</div><div class="mcard-val ok">${online}</div><div class="mcard-sub ok">De ${DB.inversores.length} monitorados</div></div>
-      <div class="mcard"><div class="mcard-label">Offline</div><div class="mcard-val ${offline > 0 ? 'err' : ''}">${offline}</div><div class="mcard-sub ${offline > 0 ? 'err' : ''}">Requerem atenção</div></div>
-      <div class="mcard"><div class="mcard-label">Modelos integrados</div><div class="mcard-val">3</div><div class="mcard-sub text-muted">Growatt · Fronius · SolarEdge</div></div>
+      <div class="mcard"><div class="mcard-label">Offline / Alarme</div><div class="mcard-val ${offline > 0 ? 'err' : ''}">${offline}</div><div class="mcard-sub ${offline > 0 ? 'err' : ''}">Requerem atenção</div></div>
+      <div class="mcard"><div class="mcard-label">Fabricantes</div><div class="mcard-val">${fabricantes.length}</div><div class="mcard-sub text-muted">${fabLabel}</div></div>
     </div>
 
     <div class="card">
@@ -322,8 +328,9 @@ const Pages = {
         <div class="form-group" style="margin:0;">
           <label>Fabricante</label>
           <select id="inv-fab">
-            <option>Growatt</option><option>Fronius</option><option>SolarEdge</option>
-            <option>Huawei</option><option>ABB</option><option>Deye</option>
+            <option>Solis</option><option>Growatt</option><option>GoodWe</option>
+            <option>Fronius</option><option>Solplanet</option><option>Kehua</option>
+            <option>Renac</option><option>Huawei</option><option>ABB</option>
           </select>
         </div>
         <div class="form-group" style="margin:0;">
@@ -345,15 +352,17 @@ const Pages = {
     <div class="card">
       <div class="card-hdr"><div class="card-title">Geração hoje por inversor online</div></div>
       <div class="chart-wrap chart-wrap-tall">
-        <canvas id="chart-inv-geracao" role="img" aria-label="Geração de energia por inversor online hoje">
-          Geração de cada inversor online no dia atual.
-        </canvas>
+        <canvas id="chart-inv-geracao" role="img" aria-label="Geração de energia por inversor online hoje"></canvas>
       </div>
     </div>`;
   },
 
   // ---- Relatórios ----
   relatorios() {
+    const totalClientes = DB.clientes.length;
+    const comWhats = DB.clientes.filter(c => c.whats).length;
+    const semWhats = totalClientes - comWhats;
+
     const logs = DB.relatorios.map(r => `
       <div class="trow" style="grid-template-columns:2fr 1fr 1fr 1fr;">
         <div class="font-bold">${r.nome}</div>
@@ -368,9 +377,9 @@ const Pages = {
 
     return `
     <div class="grid-3">
-      <div class="mcard"><div class="mcard-label"><i class="ti ti-mail"></i>E-mails enviados</div><div class="mcard-val">36</div><div class="mcard-sub text-muted">Último ciclo</div></div>
-      <div class="mcard"><div class="mcard-label"><i class="ti ti-brand-whatsapp"></i>WhatsApp</div><div class="mcard-val">34</div><div class="mcard-sub warn">2 sem número</div></div>
-      <div class="mcard"><div class="mcard-label"><i class="ti ti-file-type-pdf"></i>PDFs gerados</div><div class="mcard-val">38</div><div class="mcard-sub ok">100% dos clientes</div></div>
+      <div class="mcard"><div class="mcard-label"><i class="ti ti-mail"></i>Clientes com e-mail</div><div class="mcard-val">${totalClientes}</div><div class="mcard-sub ok">Prontos para envio</div></div>
+      <div class="mcard"><div class="mcard-label"><i class="ti ti-brand-whatsapp"></i>Com WhatsApp</div><div class="mcard-val">${comWhats}</div><div class="mcard-sub ${semWhats > 0 ? 'warn' : 'ok'}">${semWhats > 0 ? semWhats + ' sem número' : 'Todos cadastrados'}</div></div>
+      <div class="mcard"><div class="mcard-label"><i class="ti ti-file-type-pdf"></i>Total de plantas</div><div class="mcard-val">${totalClientes}</div><div class="mcard-sub ok">100% monitoradas</div></div>
     </div>
 
     <div class="card">
@@ -412,7 +421,7 @@ const Pages = {
       <div class="thdr" style="grid-template-columns:2fr 1fr 1fr 1fr;">
         <div>Relatório</div><div>Clientes</div><div>Status</div><div>Ação</div>
       </div>
-      ${logs}
+      ${logs || '<div class="text-muted" style="padding:12px 0;font-size:12px;">Nenhum relatório enviado ainda.</div>'}
       <div style="padding:12px 0 0;">
         <button class="btn btn-teal" style="width:100%;justify-content:center;"
           onclick="App.enviarTodosRelatorios()">
@@ -425,7 +434,7 @@ const Pages = {
   // ---- Alertas ----
   alertas() {
     const criticos = DB.alertas.filter(a => a.tipo === 'err').length;
-    const atencao = DB.alertas.filter(a => a.tipo === 'warn').length;
+    const atencao  = DB.alertas.filter(a => a.tipo === 'warn').length;
 
     const items = DB.alertas.map(a => `
       <div class="alert-item a-${a.tipo}" id="alerta-${a.id}">
@@ -492,16 +501,16 @@ const Pages = {
       <div class="card">
         <div class="card-hdr"><div class="card-title">Integrações de inversores</div></div>
         <div class="config-row">
+          <div><div class="config-label">GDASH API</div><div class="config-sub">public-api.gdash.io · Ativo</div></div>
+          <button class="toggle" aria-label="Toggle GDASH"></button>
+        </div>
+        <div class="config-row">
           <div><div class="config-label">Growatt API</div><div class="config-sub">server.growatt.com · Ativo</div></div>
           <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle Growatt"></button>
         </div>
         <div class="config-row">
           <div><div class="config-label">Fronius Solar API</div><div class="config-sub">api.solarweb.com · Ativo</div></div>
           <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle Fronius"></button>
-        </div>
-        <div class="config-row">
-          <div><div class="config-label">SolarEdge SetApp</div><div class="config-sub">monitoringapi.solaredge.com · Ativo</div></div>
-          <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle SolarEdge"></button>
         </div>
         <div class="config-row">
           <div><div class="config-label">Huawei FusionSolar</div><div class="config-sub">Não configurado</div></div>
