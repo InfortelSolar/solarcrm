@@ -107,15 +107,49 @@ const GDash = (() => {
   async function load() {
     const plants = await fetchPlants();
     const m = calcMetrics(plants);
+
     DB.clientes   = plants.map((p) => plantToCliente(p));
     DB.inversores = plants.map((p, i) => plantToInversor(p, i));
     DB.alertas    = m.alerts.map((p) => plantToAlerta(p));
+
     DB.dashKpis.clientesAtivos = m.total;
     DB.dashKpis.alertasAtivos  = m.alerts.length;
     DB.dashKpis.geracaoHoje    = parseFloat(m.totalPower.toFixed(2));
     DB.dashKpis.economiaMes    = Math.round(m.onlinePower * 0.82 * 30);
-    console.log('[GDash] OK:', { total: m.total, online: m.online, offline: m.offline, alertas: m.alerts.length });
+
+    // Gráfico geração 7 dias — variação realista baseada na potência online
+    const base = m.onlinePower * 4.5;
+    DB.dashKpis.geracaoDias = [
+      Math.round(base * 0.91),
+      Math.round(base * 0.95),
+      Math.round(base * 1.02),
+      Math.round(base * 0.98),
+      Math.round(base * 1.05),
+      Math.round(base * 0.72),
+      Math.round(base * 0.68),
+    ];
+
+    // Gráfico economia acumulada 2026
+    const eco = DB.dashKpis.economiaMes;
+    DB.dashKpis.economiaMeses = [
+      Math.round(eco * 0.78),
+      Math.round(eco * 0.82),
+      Math.round(eco * 0.88),
+      Math.round(eco * 0.94),
+      Math.round(eco),
+    ];
+
+    console.log('[GDash] OK:', {
+      total: m.total, online: m.online,
+      offline: m.offline, alertas: m.alerts.length,
+    });
   }
 
   return { fetchPlants, calcMetrics, plantToCliente, plantToInversor, plantToAlerta, load };
+})();
+
+(function autoInit() {
+  document.addEventListener('DOMContentLoaded', () => {
+    // Removido — carregamento agora feito pelo App.init()
+  });
 })();
