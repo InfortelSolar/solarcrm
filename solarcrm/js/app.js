@@ -311,6 +311,16 @@ sendRelatorio(clienteId) {
   salvarConfig() {
     this.toast('Configurações salvas!');
   },
+
+  async recarregarDados() {
+  this.toast('Atualizando dados...');
+  await GDash.load();
+  this.render(this.currentPage);
+  const badge = document.getElementById('badge-alertas');
+  if (badge) badge.textContent = DB.alertas.length;
+  this.toast('Dados atualizados!');
+},
+  
 logout() {
   DB._supabase.auth.signOut().then(() => {
     window.location.href = 'login.html';
