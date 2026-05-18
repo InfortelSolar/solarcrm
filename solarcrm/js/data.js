@@ -70,7 +70,7 @@ const DB = {
             acao: 'Diagnosticar',
           }
         })
-       self2.dashKpis.alertasAtivos = self2.alertas.length
+        self2.dashKpis.alertasAtivos = self2.alertas.length
 
         // Só re-renderiza se o GDASH ainda não carregou
         if (!window._gdashLoaded) {
@@ -126,5 +126,78 @@ const DB = {
         self.alertas = self.alertas.filter(function(a){return a.id !== id})
         self.dashKpis.alertasAtivos = self.alertas.length
       })
+  },
+
+  // ── clientes_extra (dados editáveis dos clientes GDASH) ──────────────────
+
+  async getClienteExtra(plantId) {
+    const { data } = await this._supabase
+      .from('clientes_extra')
+      .select('*')
+      .eq('plant_id', plantId)
+      .single()
+    return data || null
+  },
+
+  async saveClienteExtra(plantId, dados) {
+    const { data: existing } = await this._supabase
+      .from('clientes_extra')
+      .select('id')
+      .eq('plant_id', plantId)
+      .single()
+
+    if (existing) {
+      // Atualiza registro existente
+      const { error } = await this._supabase
+        .from('clientes_extra')
+        .update({
+          whatsapp: dados.whatsapp,
+          email:    dados.email,
+          tarifa:   parseFloat(dados.tarifa) || 0.82,
+          endereco: dados.endereco,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('plant_id', plantId)
+      if (error) throw error
+    } else {
+      // Insere novo registro
+      const { error } = await this._supabase
+        .from('clientes_extra')
+        .insert({
+          plant_id: plantId,
+          whatsapp: dados.whatsapp,
+          email:    dados.email,
+          tarifa:   parseFloat(dados.tarifa) || 0.82,
+          endereco: dados.endereco,
+        })
+      if (error) throw error
+    }
+
+    // Atualiza o cliente na memória
+    const c = this.clientes.find(c => c.id === plantId)
+    if (c) {
+      c.whats   = dados.whatsapp || ''
+      c.email   = dados.email    || c.email
+      c.tarifa  = parseFloat(dados.tarifa) || 0.82
+      c.endereco = dados.endereco || ''
+    }
+  },
+
+  async loadClientesExtra() {
+    const { data } = await this._supabase
+      .from('clientes_extra')
+      .select('*')
+    if (!data || data.length === 0) return
+
+    // Mescla os dados extras nos clientes em memória
+    for (const extra of data) {
+      const c = this.clientes.find(c => c.id === extra.plant_id)
+      if (c) {
+        if (extra.whatsapp) c.whats   = extra.whatsapp
+        if (extra.email)    c.email   = extra.email
+        if (extra.tarifa)   c.tarifa  = extra.tarifa
+        if (extra.endereco) c.endereco = extra.endereco
+      }
+    }
   },
 }
