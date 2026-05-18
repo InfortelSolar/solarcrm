@@ -1,5 +1,6 @@
 // ============================================================
 //  SolarCRM — Construtores de páginas (HTML strings)
+//  v3.0 — Layout e visual melhorado
 // ============================================================
 
 const Pages = {
@@ -21,98 +22,182 @@ const Pages = {
   // ---- Dashboard ----
   dashboard() {
     const d = DB.dashKpis;
+    const online  = DB.inversores.filter(i => i.status === 'ok').length;
+    const offline = DB.inversores.filter(i => i.status !== 'ok').length;
     const criticos = DB.alertas.filter(a => a.tipo === 'err').length;
-    const alertasSub = criticos > 0 ? `${criticos} críticos` : 'Monitorando';
+    const alertasSub = criticos > 0 ? `${criticos} críticos` : 'Tudo monitorado';
     const alertasClass = criticos > 0 ? 'err' : 'ok';
 
+    // Top 5 piores performers
+    const piores = [...DB.clientes]
+      .filter(c => c.performance < 100)
+      .sort((a, b) => a.performance - b.performance)
+      .slice(0, 5);
+
     const alertasRecentes = DB.alertas.slice(0, 3);
+    const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     return `
+    <!-- Resumo rápido topo -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:5px;background:#E1F5EE;color:#0F6E56;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;">
+          <span style="width:7px;height:7px;background:#1D9E75;border-radius:50%;display:inline-block;"></span>
+          ${online} plantas online
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:5px;background:#FCEBEB;color:#A32D2D;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;">
+          <span style="width:7px;height:7px;background:#E24B4A;border-radius:50%;display:inline-block;"></span>
+          ${offline} offline / alarme
+        </span>
+        <span style="font-size:12px;color:var(--text-secondary);">Atualizado às ${now}</span>
+      </div>
+      <button class="btn btn-sm" onclick="App.recarregarDados()" style="display:flex;align-items:center;gap:5px;">
+        <i class="ti ti-refresh"></i> Atualizar dados
+      </button>
+    </div>
+
+    <!-- KPI Cards -->
     <div class="grid-metrics">
-      <div class="mcard">
+      <div class="mcard" style="border-left:3px solid #1D9E75;">
         <div class="mcard-label"><i class="ti ti-bolt" style="color:#1D9E75;"></i>Geração hoje</div>
         <div class="mcard-val">${d.geracaoHoje.toLocaleString('pt-BR')} kWh</div>
         <div class="mcard-sub ok">Potência total instalada</div>
       </div>
-      <div class="mcard">
-        <div class="mcard-label"><i class="ti ti-users"></i>Clientes ativos</div>
+      <div class="mcard" style="border-left:3px solid #3B82F6;">
+        <div class="mcard-label"><i class="ti ti-solar-panel" style="color:#3B82F6;"></i>Plantas ativas</div>
         <div class="mcard-val">${d.clientesAtivos}</div>
-        <div class="mcard-sub ok">Plantas monitoradas</div>
+        <div class="mcard-sub ok">${online} online agora</div>
       </div>
-      <div class="mcard">
-        <div class="mcard-label"><i class="ti ti-coin"></i>Economia / mês</div>
+      <div class="mcard" style="border-left:3px solid #EF9F27;">
+        <div class="mcard-label"><i class="ti ti-coin" style="color:#EF9F27;"></i>Economia / mês</div>
         <div class="mcard-val">R$ ${d.economiaMes.toLocaleString('pt-BR')}</div>
         <div class="mcard-sub ok">Estimativa mensal</div>
       </div>
-      <div class="mcard">
-        <div class="mcard-label"><i class="ti ti-alert-triangle" style="color:#EF9F27;"></i>Alertas ativos</div>
-        <div class="mcard-val">${d.alertasAtivos}</div>
+      <div class="mcard" style="border-left:3px solid ${criticos > 0 ? '#E24B4A' : '#1D9E75'};">
+        <div class="mcard-label"><i class="ti ti-alert-triangle" style="color:${criticos > 0 ? '#E24B4A' : '#EF9F27'};"></i>Alertas ativos</div>
+        <div class="mcard-val" style="color:${criticos > 0 ? '#E24B4A' : 'inherit'}">${d.alertasAtivos}</div>
         <div class="mcard-sub ${alertasClass}">${alertasSub}</div>
       </div>
     </div>
 
+    <!-- Gráficos lado a lado -->
     <div class="grid-2">
       <div class="card mb-0">
         <div class="card-hdr">
           <div class="card-title">Geração — últimos 7 dias</div>
-          <div class="card-meta">kWh/dia</div>
+          <div class="card-meta">Total: ${d.geracaoDias.reduce((a,b)=>a+b,0).toLocaleString('pt-BR')} kWh</div>
         </div>
         <div class="chart-wrap">
-          <canvas id="chart-geracao-dias" role="img" aria-label="Geração de energia diária nos últimos 7 dias"></canvas>
+          <canvas id="chart-geracao-dias" role="img" aria-label="Geração diária"></canvas>
         </div>
       </div>
-      <div class="card mb-0">
-        <div class="card-hdr">
-          <div class="card-title">Performance por cliente</div>
-          <div class="card-meta">% da meta de geração</div>
-        </div>
-        ${DB.clientes.slice(0, 15).map(c => `
-          <div class="prow">
-            <div class="plabel">
-              <span>${c.nome}</span>
-              <span class="${c.performance >= 80 ? 'ok' : c.performance >= 50 ? 'warn' : 'err'}">${c.performance}%</span>
-            </div>
-            ${this.perfBar(c.performance)}
-          </div>
-        `).join('')}
-      </div>
-    </div>
-
-    <div class="grid-2" style="margin-bottom:0;">
       <div class="card mb-0">
         <div class="card-hdr">
           <div class="card-title">Economia acumulada 2026</div>
           <div class="card-meta">R$ / mês</div>
         </div>
         <div class="chart-wrap">
-          <canvas id="chart-economia-meses" role="img" aria-label="Economia acumulada mensal em 2026"></canvas>
+          <canvas id="chart-economia-meses" role="img" aria-label="Economia acumulada"></canvas>
         </div>
       </div>
+    </div>
+
+    <!-- Performance + Alertas -->
+    <div class="grid-2" style="margin-bottom:0;">
       <div class="card mb-0">
         <div class="card-hdr">
-          <div class="card-title">Alertas recentes</div>
-          <button class="btn btn-sm" onclick="App.navTo('alertas')">Ver todos</button>
+          <div class="card-title">⚠️ Plantas com baixa performance</div>
+          <div class="card-meta">
+            <button class="btn btn-sm" onclick="App.navTo('clientes')" style="font-size:11px;">Ver todas</button>
+          </div>
+        </div>
+
+        <!-- Resumo performance -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-bottom:1px solid var(--border);">
+          <div style="padding:12px 16px;text-align:center;border-right:1px solid var(--border);">
+            <div style="font-size:20px;font-weight:700;color:#1D9E75;">${DB.clientes.filter(c=>c.performance>=80).length}</div>
+            <div style="font-size:11px;color:var(--text-secondary);">Acima de 80%</div>
+          </div>
+          <div style="padding:12px 16px;text-align:center;border-right:1px solid var(--border);">
+            <div style="font-size:20px;font-weight:700;color:#EF9F27;">${DB.clientes.filter(c=>c.performance>=50&&c.performance<80).length}</div>
+            <div style="font-size:11px;color:var(--text-secondary);">Entre 50-80%</div>
+          </div>
+          <div style="padding:12px 16px;text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:#E24B4A;">${DB.clientes.filter(c=>c.performance<50).length}</div>
+            <div style="font-size:11px;color:var(--text-secondary);">Abaixo de 50%</div>
+          </div>
+        </div>
+
+        <!-- Top 5 piores -->
+        ${piores.length > 0 ? piores.map(c => `
+          <div class="prow" style="padding:10px 16px;">
+            <div class="plabel">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="avatar" style="background:${c.avBg};color:${c.avCor};width:24px;height:24px;font-size:9px;border-radius:6px;">${c.iniciais}</div>
+                <span style="font-size:12px;">${c.nome}</span>
+              </div>
+              <span class="${c.performance >= 80 ? 'ok' : c.performance >= 50 ? 'warn' : 'err'}" style="font-size:12px;font-weight:600;">${c.performance}%</span>
+            </div>
+            ${this.perfBar(c.performance)}
+          </div>
+        `).join('') : `<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-secondary);">✅ Todas as plantas com boa performance</div>`}
+
+        <!-- Todas as plantas (scroll) -->
+        <div style="max-height:200px;overflow-y:auto;border-top:1px solid var(--border);">
+          ${DB.clientes.filter(c=>c.performance>=80).slice(0,10).map(c => `
+            <div class="prow" style="padding:8px 16px;">
+              <div class="plabel">
+                <span style="font-size:12px;">${c.nome}</span>
+                <span class="ok" style="font-size:12px;">${c.performance}%</span>
+              </div>
+              ${this.perfBar(c.performance)}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="card mb-0">
+        <div class="card-hdr">
+          <div class="card-title">🚨 Alertas recentes</div>
+          <button class="btn btn-sm" onclick="App.navTo('alertas')">Ver todos (${DB.alertas.length})</button>
         </div>
         ${alertasRecentes.length > 0 ? alertasRecentes.map(a => `
-          <div class="alert-item a-${a.tipo}">
+          <div class="alert-item a-${a.tipo}" style="padding:12px 16px;">
             <i class="ti ${a.icon}"></i>
             <div class="atxt" style="flex:1;">
-              <div>${a.titulo.replace(/^[^:]+: /, '')}</div>
-              <div class="atime">${a.detalhe.split(' · ')[0]}</div>
+              <div style="font-weight:600;font-size:13px;">${a.titulo}</div>
+              <div class="atime" style="font-size:11px;margin-top:2px;">${a.detalhe}</div>
             </div>
             <button class="btn btn-sm" onclick="App.navTo('alertas')">Ver</button>
           </div>
-        `).join('') : '<div class="text-muted" style="padding:16px 0;font-size:12px;">Nenhum alerta ativo.</div>'}
+        `).join('') : `
+          <div style="padding:24px;text-align:center;">
+            <i class="ti ti-circle-check" style="font-size:32px;color:#1D9E75;display:block;margin-bottom:8px;"></i>
+            <div style="font-size:13px;color:var(--text-secondary);">Nenhum alerta ativo</div>
+          </div>`}
+
+        <!-- Mini resumo fabricantes -->
+        <div style="padding:12px 16px;border-top:1px solid var(--border);margin-top:auto;">
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Fabricantes monitorados</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${Object.entries(DB.inversores.reduce((acc,i)=>{
+              const m = i.modelo.split(' ')[0];
+              acc[m] = (acc[m]||0)+1;
+              return acc;
+            },{})).slice(0,6).map(([fab, count]) => `
+              <span style="background:var(--bg-secondary);padding:3px 8px;border-radius:10px;font-size:11px;color:var(--text-secondary);">${fab} (${count})</span>
+            `).join('')}
+          </div>
+        </div>
       </div>
     </div>`;
   },
 
   // ---- Lista de clientes ----
   clientes() {
-    const tipos = [...new Set(DB.clientes.map(c => c.tipo))];
+    const solar = DB.clientes.filter(c => c.tipo === 'Solar').length;
     const residencial = DB.clientes.filter(c => c.tipo === 'Residencial').length;
     const comercial = DB.clientes.filter(c => c.tipo === 'Comercial').length;
-    const solar = DB.clientes.filter(c => c.tipo === 'Solar').length;
     const comAlertas = DB.clientes.filter(c => c.status !== 'ok').length;
 
     const rows = DB.clientes.map(c => `
@@ -142,7 +227,9 @@ const Pages = {
         ${solar > 0 ? `<div class="tab" onclick="Pages.filterClientes('Solar', this)">Solar (${solar})</div>` : ''}
         ${residencial > 0 ? `<div class="tab" onclick="Pages.filterClientes('Residencial', this)">Residencial (${residencial})</div>` : ''}
         ${comercial > 0 ? `<div class="tab" onclick="Pages.filterClientes('Comercial', this)">Comercial (${comercial})</div>` : ''}
-        <div class="tab" onclick="Pages.filterClientes('alertas', this)">Alertas (${comAlertas})</div>
+        <div class="tab" onclick="Pages.filterClientes('alertas', this)">
+          Alertas (${comAlertas}) ${comAlertas > 0 ? '<span style="display:inline-block;width:7px;height:7px;background:#E24B4A;border-radius:50%;margin-left:4px;"></span>' : ''}
+        </div>
       </div>
       <div class="card">
         <div class="thdr" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr;">
@@ -232,19 +319,19 @@ const Pages = {
       </div>
 
       <div class="grid-3">
-        <div class="mcard">
+        <div class="mcard" style="border-left:3px solid #1D9E75;">
           <div class="mcard-label">Geração hoje</div>
           <div class="mcard-val">${c.geracaoHoje} kWh</div>
           <div class="mcard-sub ${c.status === 'ok' ? 'ok' : c.status === 'warn' ? 'warn' : 'err'}">
             ${c.status === 'err' ? 'Sistema offline' : c.status === 'warn' ? 'Abaixo da meta' : '↑ Normal'}
           </div>
         </div>
-        <div class="mcard">
+        <div class="mcard" style="border-left:3px solid #3B82F6;">
           <div class="mcard-label">Geração este mês</div>
           <div class="mcard-val">${c.geracaoMes.toLocaleString('pt-BR')} kWh</div>
           <div class="mcard-sub text-muted">${percMeta}% da meta (${c.metaMes.toLocaleString('pt-BR')} kWh)</div>
         </div>
-        <div class="mcard">
+        <div class="mcard" style="border-left:3px solid #EF9F27;">
           <div class="mcard-label">Economia acumulada</div>
           <div class="mcard-val">${economia}</div>
           <div class="mcard-sub ok">Este mês</div>
@@ -257,7 +344,7 @@ const Pages = {
           <div class="card-meta">kWh / mês</div>
         </div>
         <div class="chart-wrap">
-          <canvas id="chart-perfil-hist" role="img" aria-label="Histórico de geração mensal do cliente ${c.nome}"></canvas>
+          <canvas id="chart-perfil-hist" role="img" aria-label="Histórico de geração mensal"></canvas>
         </div>
       </div>
 
@@ -268,7 +355,7 @@ const Pages = {
             <i class="ti ti-send"></i> Enviar novo
           </button>
         </div>
-        ${histLog || '<div class="text-muted" style="font-size:12px;">Nenhum relatório enviado ainda.</div>'}
+        ${histLog || '<div class="text-muted" style="font-size:12px;padding:12px;">Nenhum relatório enviado ainda.</div>'}
       </div>`;
 
     setTimeout(() => Charts.renderPerfil(c), 50);
@@ -312,13 +399,28 @@ const Pages = {
 
     return `
     <div class="grid-3">
-      <div class="mcard"><div class="mcard-label">Online</div><div class="mcard-val ok">${online}</div><div class="mcard-sub ok">De ${DB.inversores.length} monitorados</div></div>
-      <div class="mcard"><div class="mcard-label">Offline / Alarme</div><div class="mcard-val ${offline > 0 ? 'err' : ''}">${offline}</div><div class="mcard-sub ${offline > 0 ? 'err' : ''}">Requerem atenção</div></div>
-      <div class="mcard"><div class="mcard-label">Fabricantes</div><div class="mcard-val">${fabricantes.length}</div><div class="mcard-sub text-muted">${fabLabel}</div></div>
+      <div class="mcard" style="border-left:3px solid #1D9E75;">
+        <div class="mcard-label">Online</div>
+        <div class="mcard-val ok">${online}</div>
+        <div class="mcard-sub ok">De ${DB.inversores.length} monitorados</div>
+      </div>
+      <div class="mcard" style="border-left:3px solid ${offline > 0 ? '#E24B4A' : '#1D9E75'};">
+        <div class="mcard-label">Offline / Alarme</div>
+        <div class="mcard-val ${offline > 0 ? 'err' : ''}">${offline}</div>
+        <div class="mcard-sub ${offline > 0 ? 'err' : ''}">Requerem atenção</div>
+      </div>
+      <div class="mcard" style="border-left:3px solid #3B82F6;">
+        <div class="mcard-label">Fabricantes</div>
+        <div class="mcard-val">${fabricantes.length}</div>
+        <div class="mcard-sub text-muted">${fabLabel}</div>
+      </div>
     </div>
 
     <div class="card">
-      <div class="card-hdr"><div class="card-title">Inversores monitorados</div><div class="card-meta">Atualizado agora</div></div>
+      <div class="card-hdr">
+        <div class="card-title">Inversores monitorados</div>
+        <div class="card-meta">Atualizado agora</div>
+      </div>
       ${cards}
     </div>
 
@@ -352,7 +454,7 @@ const Pages = {
     <div class="card">
       <div class="card-hdr"><div class="card-title">Geração hoje por inversor online</div></div>
       <div class="chart-wrap chart-wrap-tall">
-        <canvas id="chart-inv-geracao" role="img" aria-label="Geração de energia por inversor online hoje"></canvas>
+        <canvas id="chart-inv-geracao" role="img" aria-label="Geração por inversor"></canvas>
       </div>
     </div>`;
   },
@@ -377,9 +479,21 @@ const Pages = {
 
     return `
     <div class="grid-3">
-      <div class="mcard"><div class="mcard-label"><i class="ti ti-mail"></i>Clientes com e-mail</div><div class="mcard-val">${totalClientes}</div><div class="mcard-sub ok">Prontos para envio</div></div>
-      <div class="mcard"><div class="mcard-label"><i class="ti ti-brand-whatsapp"></i>Com WhatsApp</div><div class="mcard-val">${comWhats}</div><div class="mcard-sub ${semWhats > 0 ? 'warn' : 'ok'}">${semWhats > 0 ? semWhats + ' sem número' : 'Todos cadastrados'}</div></div>
-      <div class="mcard"><div class="mcard-label"><i class="ti ti-file-type-pdf"></i>Total de plantas</div><div class="mcard-val">${totalClientes}</div><div class="mcard-sub ok">100% monitoradas</div></div>
+      <div class="mcard" style="border-left:3px solid #1D9E75;">
+        <div class="mcard-label"><i class="ti ti-mail"></i>Clientes com e-mail</div>
+        <div class="mcard-val">${totalClientes}</div>
+        <div class="mcard-sub ok">Prontos para envio</div>
+      </div>
+      <div class="mcard" style="border-left:3px solid ${semWhats > 0 ? '#EF9F27' : '#1D9E75'};">
+        <div class="mcard-label"><i class="ti ti-brand-whatsapp"></i>Com WhatsApp</div>
+        <div class="mcard-val">${comWhats}</div>
+        <div class="mcard-sub ${semWhats > 0 ? 'warn' : 'ok'}">${semWhats > 0 ? semWhats + ' sem número' : 'Todos cadastrados'}</div>
+      </div>
+      <div class="mcard" style="border-left:3px solid #3B82F6;">
+        <div class="mcard-label"><i class="ti ti-file-type-pdf"></i>Total de plantas</div>
+        <div class="mcard-val">${totalClientes}</div>
+        <div class="mcard-sub ok">100% monitoradas</div>
+      </div>
     </div>
 
     <div class="card">
@@ -421,10 +535,9 @@ const Pages = {
       <div class="thdr" style="grid-template-columns:2fr 1fr 1fr 1fr;">
         <div>Relatório</div><div>Clientes</div><div>Status</div><div>Ação</div>
       </div>
-      ${logs || '<div class="text-muted" style="padding:12px 0;font-size:12px;">Nenhum relatório enviado ainda.</div>'}
+      ${logs || '<div class="text-muted" style="padding:12px;font-size:12px;">Nenhum relatório enviado ainda.</div>'}
       <div style="padding:12px 0 0;">
-        <button class="btn btn-teal" style="width:100%;justify-content:center;"
-          onclick="App.enviarTodosRelatorios()">
+        <button class="btn btn-teal" style="width:100%;justify-content:center;" onclick="App.enviarTodosRelatorios()">
           <i class="ti ti-send"></i> Gerar e enviar relatório de Maio 2026
         </button>
       </div>
@@ -455,9 +568,21 @@ const Pages = {
 
     return `
     <div class="grid-3">
-      <div class="mcard"><div class="mcard-label">Críticos</div><div class="mcard-val err">${criticos}</div><div class="mcard-sub err">Ação imediata</div></div>
-      <div class="mcard"><div class="mcard-label">Atenção</div><div class="mcard-val warn">${atencao}</div><div class="mcard-sub warn">Monitorar</div></div>
-      <div class="mcard"><div class="mcard-label">Resolvidos (30d)</div><div class="mcard-val">14</div><div class="mcard-sub ok">100% resolvidos</div></div>
+      <div class="mcard" style="border-left:3px solid #E24B4A;">
+        <div class="mcard-label">Críticos</div>
+        <div class="mcard-val err">${criticos}</div>
+        <div class="mcard-sub err">Ação imediata</div>
+      </div>
+      <div class="mcard" style="border-left:3px solid #EF9F27;">
+        <div class="mcard-label">Atenção</div>
+        <div class="mcard-val warn">${atencao}</div>
+        <div class="mcard-sub warn">Monitorar</div>
+      </div>
+      <div class="mcard" style="border-left:3px solid #1D9E75;">
+        <div class="mcard-label">Resolvidos (30d)</div>
+        <div class="mcard-val">14</div>
+        <div class="mcard-sub ok">100% resolvidos</div>
+      </div>
     </div>
     <div class="card">
       <div class="card-hdr"><div class="card-title">Alertas ativos</div></div>
@@ -477,11 +602,11 @@ const Pages = {
           <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle envio automático"></button>
         </div>
         <div class="config-row">
-          <div><div class="config-label">E-mail (SMTP)</div><div class="config-sub">SMTP configurado</div></div>
+          <div><div class="config-label">E-mail (Resend)</div><div class="config-sub">Configurado e ativo</div></div>
           <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle email"></button>
         </div>
         <div class="config-row">
-          <div><div class="config-label">WhatsApp Business API</div><div class="config-sub">Meta WABA conectado</div></div>
+          <div><div class="config-label">WhatsApp Business API</div><div class="config-sub">Evolution API no Railway</div></div>
           <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle WhatsApp"></button>
         </div>
         <div class="config-row">
@@ -494,7 +619,7 @@ const Pages = {
         </div>
         <div class="form-group">
           <label>Nome do remetente</label>
-          <input type="text" value="SolarCRM — Sua Empresa" />
+          <input type="text" value="Infortel Solar — SolarCRM" />
         </div>
       </div>
 
