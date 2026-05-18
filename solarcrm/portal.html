@@ -3,352 +3,92 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portal do Cliente — SolarCRM</title>
+  <title>Portal do Cliente — Infortel Solar</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --green: #1D9E75;
-      --green-dark: #0F6E56;
-      --green-light: #E1F5EE;
-      --yellow: #EF9F27;
-      --red: #E24B4A;
-      --bg: #F4F6F8;
-      --card: #FFFFFF;
-      --text: #1A1A2E;
-      --text-sub: #6B7280;
-      --border: #E5E7EB;
-      --radius: 12px;
+      --green: #1D9E75; --green-dark: #0F6E56; --green-light: #E1F5EE;
+      --yellow: #EF9F27; --red: #E24B4A;
+      --bg: #F4F6F8; --card: #FFFFFF; --text: #1A1A2E;
+      --text-sub: #6B7280; --border: #E5E7EB; --radius: 12px;
     }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
-
-    /* ── LOGIN ── */
-    #login-screen {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #0F6E56 0%, #1D9E75 50%, #34C896 100%);
-      padding: 20px;
-    }
-
-    .login-card {
-      background: white;
-      border-radius: 20px;
-      padding: 40px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-    }
-
-    .login-logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 32px;
-    }
-
-    .login-logo-icon {
-      width: 48px;
-      height: 48px;
-      background: var(--green-light);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      color: var(--green);
-    }
-
-    .login-logo-text { font-size: 20px; font-weight: 700; color: var(--text); }
-    .login-logo-sub  { font-size: 12px; color: var(--text-sub); }
-
-    .login-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-    .login-sub   { font-size: 14px; color: var(--text-sub); margin-bottom: 28px; }
-
+    /* LOGIN */
+    #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0F6E56 0%, #1D9E75 50%, #34C896 100%); padding: 20px; }
+    .login-card { background: white; border-radius: 20px; padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+    .login-logo { display: flex; align-items: center; justify-content: center; margin-bottom: 28px; }
+    .login-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; text-align: center; }
+    .login-sub { font-size: 14px; color: var(--text-sub); margin-bottom: 28px; text-align: center; }
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
-
-    .form-group input {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
+    .form-group input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; transition: border-color 0.2s; }
     .form-group input:focus { border-color: var(--green); }
-
-    .btn-login {
-      width: 100%;
-      padding: 13px;
-      background: var(--green);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-      margin-top: 8px;
-    }
-
+    .btn-login { width: 100%; padding: 13px; background: var(--green); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 8px; }
     .btn-login:hover { background: var(--green-dark); }
     .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+    .login-error { background: #FCEBEB; color: var(--red); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-top: 12px; display: none; }
 
-    .login-error {
-      background: #FCEBEB;
-      color: var(--red);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 13px;
-      margin-top: 12px;
-      display: none;
-    }
-
-    /* ── PORTAL ── */
+    /* PORTAL */
     #portal-screen { display: none; }
-
-    .portal-header {
-      background: white;
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
+    .portal-header { background: white; border-bottom: 1px solid var(--border); padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .portal-header-left { display: flex; align-items: center; gap: 12px; }
-
-    .portal-logo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 700;
-      font-size: 16px;
-      color: var(--text);
-    }
-
-    .portal-logo i { color: var(--green); font-size: 20px; }
-
-    .portal-plant {
-      font-size: 13px;
-      color: var(--text-sub);
-      padding: 4px 10px;
-      background: var(--green-light);
-      border-radius: 20px;
-      color: var(--green-dark);
-      font-weight: 500;
-    }
-
-    .btn-logout {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      background: white;
-      font-size: 13px;
-      cursor: pointer;
-      color: var(--text-sub);
-      transition: all 0.2s;
-    }
-
+    .portal-plant { font-size: 13px; padding: 4px 10px; background: var(--green-light); border-radius: 20px; color: var(--green-dark); font-weight: 500; }
+    .btn-logout { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 8px; background: white; font-size: 13px; cursor: pointer; color: var(--text-sub); transition: all 0.2s; }
     .btn-logout:hover { border-color: var(--red); color: var(--red); }
-
-    .portal-content {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 28px 24px;
-    }
-
-    .portal-welcome {
-      margin-bottom: 28px;
-    }
-
-    .portal-welcome h1 {
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-
+    .portal-content { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+    .portal-welcome { margin-bottom: 28px; }
+    .portal-welcome h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
     .portal-welcome p { font-size: 14px; color: var(--text-sub); }
 
-    /* Cards métricas */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    .metric-card {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 20px;
-      border: 1px solid var(--border);
-    }
-
-    .metric-label {
-      font-size: 12px;
-      color: var(--text-sub);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .metric-val {
-      font-size: 26px;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .metric-card { background: var(--card); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); }
+    .metric-label { font-size: 12px; color: var(--text-sub); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .metric-val { font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
     .metric-sub { font-size: 12px; color: var(--text-sub); }
-    .metric-sub.ok  { color: var(--green); }
+    .metric-sub.ok { color: var(--green); }
     .metric-sub.warn { color: var(--yellow); }
-    .metric-sub.err  { color: var(--red); }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .status-badge.ok   { background: var(--green-light); color: var(--green-dark); }
+    .metric-sub.err { color: var(--red); }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .status-badge.ok { background: var(--green-light); color: var(--green-dark); }
     .status-badge.warn { background: #FAEEDA; color: #854F0B; }
-    .status-badge.err  { background: #FCEBEB; color: #A32D2D; }
+    .status-badge.err { background: #FCEBEB; color: #A32D2D; }
 
-    /* Grid 2 cols */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } .metrics-grid { grid-template-columns: 1fr 1fr; } }
 
-    @media (max-width: 768px) {
-      .grid-2 { grid-template-columns: 1fr; }
-      .metrics-grid { grid-template-columns: 1fr 1fr; }
-    }
-
-    /* Card */
-    .card {
-      background: var(--card);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      overflow: hidden;
-    }
-
-    .card-hdr {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
+    .card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+    .card-hdr { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
     .card-title { font-size: 14px; font-weight: 600; }
-    .card-meta  { font-size: 12px; color: var(--text-sub); }
-    .card-body  { padding: 20px; }
-
+    .card-meta { font-size: 12px; color: var(--text-sub); }
     .chart-wrap { padding: 16px 20px; height: 220px; }
 
-    /* Alertas */
-    .alert-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-    }
-
+    .alert-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 13px; }
     .alert-item:last-child { border-bottom: none; }
-    .alert-item.ok   { background: #F0FDF8; }
+    .alert-item.ok { background: #F0FDF8; }
     .alert-item.warn { background: #FFFBEB; }
-    .alert-item.err  { background: #FFF5F5; }
-
+    .alert-item.err { background: #FFF5F5; }
     .alert-item i { margin-top: 2px; font-size: 16px; }
-    .alert-item.ok   i { color: var(--green); }
+    .alert-item.ok i { color: var(--green); }
     .alert-item.warn i { color: var(--yellow); }
-    .alert-item.err  i { color: var(--red); }
-
+    .alert-item.err i { color: var(--red); }
     .alert-title { font-weight: 600; margin-bottom: 2px; }
-    .alert-time  { color: var(--text-sub); font-size: 12px; }
+    .alert-time { color: var(--text-sub); font-size: 12px; }
 
-    /* Info grid */
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0;
-    }
-
-    .info-item {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-      border-right: 1px solid var(--border);
-    }
-
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .info-item { padding: 14px 20px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
     .info-item:nth-child(even) { border-right: none; }
     .info-item:nth-last-child(-n+2) { border-bottom: none; }
-
     .info-lbl { font-size: 11px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
     .info-val { font-size: 14px; font-weight: 600; }
 
-    /* Loader */
-    #portal-loader {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 16px;
-      background: var(--bg);
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid var(--green-light);
-      border-top-color: var(--green);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
+    #portal-loader { min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; background: var(--bg); }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--green-light); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    .empty-state {
-      text-align: center;
-      padding: 32px 20px;
-      color: var(--text-sub);
-      font-size: 13px;
-    }
-
+    .empty-state { text-align: center; padding: 32px 20px; color: var(--text-sub); font-size: 13px; }
     .empty-state i { font-size: 32px; margin-bottom: 8px; display: block; opacity: 0.4; }
   </style>
 </head>
@@ -356,6 +96,7 @@
 
 <!-- LOADER -->
 <div id="portal-loader">
+  <img src="/LOGO_NOVA_IS.png" alt="Infortel Solar" style="height:80px;width:auto;margin-bottom:8px;" />
   <div class="spinner"></div>
   <p style="color:#6B7280;font-size:14px;">Carregando portal...</p>
 </div>
@@ -364,13 +105,9 @@
 <div id="login-screen" style="display:none;">
   <div class="login-card">
     <div class="login-logo">
-      <div class="login-logo-icon"><i class="ti ti-solar-panel"></i></div>
-      <div>
-        <div class="login-logo-text">SolarCRM</div>
-        <div class="login-logo-sub">Portal do Cliente</div>
-      </div>
+      <img src="/LOGO_NOVA_IS.png" alt="Infortel Solar" style="height:92px;width:auto;object-fit:contain;" />
     </div>
-    <div class="login-title">Bem-vindo!</div>
+    <div class="login-title">Portal do Cliente</div>
     <div class="login-sub">Acesse sua conta para ver os dados da sua usina solar.</div>
     <div class="form-group">
       <label>E-mail</label>
@@ -389,9 +126,7 @@
 <div id="portal-screen" style="display:none;">
   <header class="portal-header">
     <div class="portal-header-left">
-      <div class="portal-logo">
-        <i class="ti ti-solar-panel"></i> SolarCRM
-      </div>
+      <img src="/LOGO_NOVA_IS.png" alt="Infortel Solar" style="height:40px;width:auto;object-fit:contain;" />
       <span class="portal-plant" id="portal-plant-name">—</span>
     </div>
     <button class="btn-logout" onclick="Portal.logout()">
@@ -405,7 +140,6 @@
       <p id="portal-date"></p>
     </div>
 
-    <!-- KPIs -->
     <div class="metrics-grid" id="portal-metrics">
       <div class="metric-card">
         <div class="metric-label"><i class="ti ti-bolt" style="color:#1D9E75"></i> Geração hoje</div>
@@ -429,7 +163,6 @@
       </div>
     </div>
 
-    <!-- Gráfico + Info -->
     <div class="grid-2">
       <div class="card">
         <div class="card-hdr">
@@ -441,10 +174,8 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-hdr">
-          <div class="card-title">Detalhes da usina</div>
-        </div>
-        <div class="info-grid" id="portal-info">
+        <div class="card-hdr"><div class="card-title">Detalhes da usina</div></div>
+        <div class="info-grid">
           <div class="info-item"><div class="info-lbl">Potência</div><div class="info-val" id="info-potencia">—</div></div>
           <div class="info-item"><div class="info-lbl">Fabricante</div><div class="info-val" id="info-fabricante">—</div></div>
           <div class="info-item"><div class="info-lbl">Painéis</div><div class="info-val" id="info-paineis">—</div></div>
@@ -455,7 +186,6 @@
       </div>
     </div>
 
-    <!-- Alertas -->
     <div class="card" style="margin-bottom:16px;">
       <div class="card-hdr">
         <div class="card-title">Alertas do sistema</div>
@@ -464,11 +194,8 @@
       <div id="portal-alertas"></div>
     </div>
 
-    <!-- Relatórios -->
     <div class="card">
-      <div class="card-hdr">
-        <div class="card-title">Relatórios enviados</div>
-      </div>
+      <div class="card-hdr"><div class="card-title">Relatórios enviados</div></div>
       <div id="portal-relatorios">
         <div class="empty-state">
           <i class="ti ti-file-description"></i>
@@ -476,15 +203,12 @@
         </div>
       </div>
     </div>
-
   </div>
 </div>
 
 <script>
 const SUPABASE_URL = 'https://ovqwavrbxdplehvgplcv.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM';
-const GDASH_KEY   = '3HnfW02lkFxhrG92G9Ek8';
-
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const Portal = {
@@ -506,27 +230,13 @@ const Portal = {
     const senha = document.getElementById('login-senha').value;
     const btn   = document.getElementById('btn-login');
     const err   = document.getElementById('login-error');
-
-    if (!email || !senha) {
-      err.textContent = 'Preencha e-mail e senha.';
-      err.style.display = 'block';
-      return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = 'Entrando...';
-    err.style.display = 'none';
-
+    if (!email || !senha) { err.textContent = 'Preencha e-mail e senha.'; err.style.display = 'block'; return; }
+    btn.disabled = true; btn.textContent = 'Entrando...'; err.style.display = 'none';
     const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
-
     if (error) {
-      err.textContent = 'E-mail ou senha incorretos.';
-      err.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = 'Entrar';
-      return;
+      err.textContent = 'E-mail ou senha incorretos.'; err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Entrar'; return;
     }
-
     document.getElementById('login-screen').style.display = 'none';
     await this.loadPortal(data.user);
   },
@@ -539,18 +249,10 @@ const Portal = {
 
   async loadPortal(user) {
     document.getElementById('portal-screen').style.display = 'block';
-
-    // Data atual
     const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     document.getElementById('portal-date').textContent = hoje.charAt(0).toUpperCase() + hoje.slice(1);
 
-    // Busca planta vinculada
-    const { data: portalData } = await sb
-      .from('portal_clientes')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
-
+    const { data: portalData } = await sb.from('portal_clientes').select('*').eq('user_id', user.id).single();
     if (!portalData) {
       document.getElementById('portal-greeting').textContent = 'Bem-vindo!';
       document.getElementById('portal-plant-name').textContent = 'Planta não vinculada';
@@ -560,22 +262,14 @@ const Portal = {
     document.getElementById('portal-plant-name').textContent = portalData.plant_name;
     document.getElementById('portal-greeting').textContent = `Olá! Aqui estão os dados de ${portalData.plant_name} 🌞`;
 
-    // Busca dados do GDASH
     try {
       const res  = await fetch('/api/gdash');
       const json = await res.json();
       const plants = json.data || [];
       const plant = plants.find(p => p.id === portalData.plant_id || p.name === portalData.plant_name);
-
-      if (plant) {
-        this.plant = plant;
-        this.renderPlant(plant);
-      } else {
-        this.renderSemDados(portalData.plant_name);
-      }
-    } catch(e) {
-      this.renderSemDados(portalData.plant_name);
-    }
+      if (plant) { this.plant = plant; this.renderPlant(plant); }
+      else this.renderSemDados(portalData.plant_name);
+    } catch(e) { this.renderSemDados(portalData.plant_name); }
   },
 
   renderPlant(p) {
@@ -588,57 +282,36 @@ const Portal = {
     const meta     = Math.round(power * 110);
     const perf     = isOnline ? 90 : 0;
 
-    // KPIs
     document.getElementById('m-geracao').textContent     = `${geracao} kWh`;
     document.getElementById('m-geracao-sub').textContent = isOnline ? '↑ Normal' : 'Sistema offline';
     document.getElementById('m-geracao-sub').className   = `metric-sub ${isOnline ? 'ok' : 'err'}`;
-
-    document.getElementById('m-mes').textContent     = `${geracaoMes.toLocaleString('pt-BR')} kWh`;
-    document.getElementById('m-mes-sub').textContent = `${perf}% da meta (${meta.toLocaleString('pt-BR')} kWh)`;
-
-    document.getElementById('m-economia').textContent = economia;
+    document.getElementById('m-mes').textContent         = `${geracaoMes.toLocaleString('pt-BR')} kWh`;
+    document.getElementById('m-mes-sub').textContent     = `${perf}% da meta (${meta.toLocaleString('pt-BR')} kWh)`;
+    document.getElementById('m-economia').textContent    = economia;
 
     const stMap = { OK: ['ok', '🟢 Online'], OFFLINE: ['err', '🔴 Offline'], ALARMING: ['err', '⚠️ Alarme'], NO_COMMUNICATION: ['warn', '📡 Sem comunicação'] };
     const [stClass, stLabel] = stMap[status] || ['warn', status];
-    document.getElementById('m-status').innerHTML = `<span class="status-badge ${stClass}">${stLabel}</span>`;
+    document.getElementById('m-status').innerHTML     = `<span class="status-badge ${stClass}">${stLabel}</span>`;
     document.getElementById('m-status-sub').textContent = new Date(p.updated_at).toLocaleString('pt-BR');
 
-    // Info da usina
     document.getElementById('info-potencia').textContent   = `${power} kWp`;
     document.getElementById('info-fabricante').textContent = p.manufacturer || '—';
     document.getElementById('info-paineis').textContent    = `${Math.round(power / 0.55)} painéis`;
     document.getElementById('info-meta').textContent       = `${meta.toLocaleString('pt-BR')} kWh`;
     document.getElementById('info-perf').textContent       = `${perf}%`;
 
-    // Gráfico
-    const base   = geracao;
-    const dias   = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-    const dados  = [0.91, 0.95, 1.02, 0.98, 1.05, 0.72, 0.68].map(f => parseFloat((base * f).toFixed(1)));
+    const dias  = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+    const dados = [0.91, 0.95, 1.02, 0.98, 1.05, 0.72, 0.68].map(f => parseFloat((geracao * f).toFixed(1)));
     this.renderChart(dias, dados);
 
-    // Alertas
     const alertasEl = document.getElementById('portal-alertas');
     const countEl   = document.getElementById('alertas-count');
     if (!isOnline) {
       countEl.textContent = '1 alerta ativo';
-      alertasEl.innerHTML = `
-        <div class="alert-item ${stClass}">
-          <i class="ti ti-alert-triangle"></i>
-          <div>
-            <div class="alert-title">${p.name}: ${stLabel}</div>
-            <div class="alert-time">${p.manufacturer} · ${power} kWp · ${new Date(p.updated_at).toLocaleString('pt-BR')}</div>
-          </div>
-        </div>`;
+      alertasEl.innerHTML = `<div class="alert-item ${stClass}"><i class="ti ti-alert-triangle"></i><div><div class="alert-title">${p.name}: ${stLabel}</div><div class="alert-time">${p.manufacturer} · ${power} kWp · ${new Date(p.updated_at).toLocaleString('pt-BR')}</div></div></div>`;
     } else {
       countEl.textContent = 'Nenhum alerta';
-      alertasEl.innerHTML = `
-        <div class="alert-item ok">
-          <i class="ti ti-circle-check"></i>
-          <div>
-            <div class="alert-title">Sistema funcionando normalmente</div>
-            <div class="alert-time">Última atualização: ${new Date(p.updated_at).toLocaleString('pt-BR')}</div>
-          </div>
-        </div>`;
+      alertasEl.innerHTML = `<div class="alert-item ok"><i class="ti ti-circle-check"></i><div><div class="alert-title">Sistema funcionando normalmente</div><div class="alert-time">Última atualização: ${new Date(p.updated_at).toLocaleString('pt-BR')}</div></div></div>`;
     }
   },
 
@@ -655,19 +328,9 @@ const Portal = {
     const canvas = document.getElementById('chart-portal-geracao');
     this.chartInstance = new Chart(canvas, {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'kWh',
-          data,
-          backgroundColor: '#1D9E75',
-          borderRadius: 4,
-          borderSkipped: false,
-        }]
-      },
+      data: { labels, datasets: [{ label: 'kWh', data, backgroundColor: '#1D9E75', borderRadius: 4, borderSkipped: false }] },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { color: '#9CA3AF', font: { size: 11 } } },
@@ -679,12 +342,8 @@ const Portal = {
 };
 
 document.addEventListener('DOMContentLoaded', () => Portal.init());
-
-// Login ao pressionar Enter
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
-    Portal.login();
-  }
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') Portal.login();
 });
 </script>
 </body>
