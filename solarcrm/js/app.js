@@ -72,6 +72,9 @@ async init() {
   bindModal() {
     const overlay = document.getElementById('modal-cliente');
     document.getElementById('btn-novo-cliente').addEventListener('click', () => {
+      document.getElementById('modal-title').textContent = 'Novo cliente';
+      document.getElementById('form-cliente').reset();
+      document.getElementById('form-cliente').onsubmit = (e) => { e.preventDefault(); this.salvarCliente(); };
       overlay.classList.add('open');
     });
     document.getElementById('modal-close').addEventListener('click', () => {
@@ -82,10 +85,6 @@ async init() {
     });
     overlay.addEventListener('click', e => {
       if (e.target === overlay) overlay.classList.remove('open');
-    });
-    document.getElementById('form-cliente').addEventListener('submit', e => {
-      e.preventDefault();
-      this.salvarCliente();
     });
     const relOverlay = document.getElementById('modal-relatorio');
     document.getElementById('modal-rel-close').addEventListener('click', () => relOverlay.classList.remove('open'));
@@ -125,106 +124,132 @@ async init() {
     if (this.currentPage === 'dashboard') this.render('dashboard');
     this.updateAlertBadge();
   },
-  
-  editarCliente(id) {
-  const c = DB.getCliente(id)
-  if (!c) return
-  document.getElementById('f-nome').value = c.nome
-  document.getElementById('f-tipo').value = c.tipo
-  document.getElementById('f-potencia').value = c.potencia
-  document.getElementById('f-paineis').value = c.paineis
-  document.getElementById('f-email').value = c.email
-  document.getElementById('f-whats').value = c.whats
-  document.getElementById('f-endereco').value = c.endereco
-  document.getElementById('f-inversor').value = c.inversor
-  document.getElementById('modal-cliente').classList.add('open')
-  document.getElementById('form-cliente').onsubmit = async (e) => {
-    e.preventDefault()
-    const dados = {
-      nome: document.getElementById('f-nome').value.trim(),
-      tipo: document.getElementById('f-tipo').value,
-      potencia: parseFloat(document.getElementById('f-potencia').value),
-      paineis: parseInt(document.getElementById('f-paineis').value),
-      email: document.getElementById('f-email').value.trim(),
-      whats: document.getElementById('f-whats').value.trim(),
-      endereco: document.getElementById('f-endereco').value.trim(),
-      inversor: document.getElementById('f-inversor').value,
-    }
-    DB._supabase.from('clientes').update({
-      nome: dados.nome, tipo: dados.tipo, email: dados.email,
-      whatsapp: dados.whats, endereco: dados.endereco,
-      potencia: dados.potencia, paineis: dados.paineis,
-      inversor: dados.inversor,
-    }).eq('id', id).then(() => {
-      document.getElementById('modal-cliente').classList.remove('open')
-      DB.load().then(() => {
-        this.render('clientes')
-        this.toast(`Cliente ${dados.nome} atualizado!`)
-      })
-    })
-  }
-},
-  
-excluirCliente(id, nome) {
-  if (!confirm(`Tem certeza que deseja excluir o cliente ${nome}?`)) return
-  DB._supabase.from('clientes').delete().eq('id', id)
-    .then(() => {
-      DB.load().then(() => {
-        Pages.closePerfil()
-        this.render('clientes')
-        this.toast(`Cliente ${nome} excluído!`)
-      })
-    })
-},
-sendRelatorio(clienteId) {
-  const c = DB.getCliente(clienteId)
-  if (!c) return
-  const economia = DB.computeEconomia(c)
-  const percMeta = Math.round((c.geracaoMes / c.metaMes) * 100) || 0
-  document.getElementById('preview-relatorio').innerHTML = `
-    <div style="background:var(--bg-secondary);border-radius:8px;padding:14px;font-size:12px;line-height:1.8;">
-      <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Relatório Solar — Maio 2026</div>
-      <div style="margin-bottom:8px;color:#666;">Para: ${c.nome} &lt;${c.email}&gt; ${c.whats ? '· WhatsApp: ' + c.whats : ''}</div>
-      <strong>Geração:</strong> ${c.geracaoMes} kWh (${percMeta}% da meta)<br>
-      <strong>Economia:</strong> ${economia}<br>
-      <strong>Status:</strong> ${c.statusLabel}<br>
-      <strong>Inversor:</strong> ${c.inversor}
-    </div>`
-  document.getElementById('btn-enviar-preview').onclick = () => {
-    document.getElementById('modal-relatorio').classList.remove('open')
-    this.toast('Enviando relatório...')
-    fetch('https://ovqwavrbxdplehvgplcv.supabase.co/functions/v1/send-relatorio', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM',
-      },
-      body: JSON.stringify({
-        mes: 'Maio 2026',
-        cliente: {
-          nome: c.nome,
-          email: c.email,
-          whats: c.whats,
-          geracaoMes: c.geracaoMes,
-          metaMes: c.metaMes,
-          tarifa: c.tarifa,
-          statusLabel: c.statusLabel,
-          inversor: c.inversor,
-        }
-      })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.ok) {
-        this.toast('Relatório enviado com sucesso!')
-      } else {
-        this.toast('Erro ao enviar. Tente novamente.', 'warn')
+
+  async editarClienteGdash(id) {
+    const c = DB.getCliente(id)
+    if (!c) return
+    const extra = await DB.getClienteExtra(id)
+    document.getElementById('f-nome').value     = c.nome
+    document.getElementById('f-tipo').value     = c.tipo
+    document.getElementById('f-potencia').value = c.potencia
+    document.getElementById('f-paineis').value  = c.paineis
+    document.getElementById('f-email').value    = extra?.email    || c.email    || ''
+    document.getElementById('f-whats').value    = extra?.whatsapp || c.whats    || ''
+    document.getElementById('f-endereco').value = extra?.endereco || c.endereco || ''
+    document.getElementById('f-inversor').value = c.inversor
+    document.getElementById('modal-title').textContent = `Editar — ${c.nome}`
+    document.getElementById('modal-cliente').classList.add('open')
+    document.getElementById('form-cliente').onsubmit = async (e) => {
+      e.preventDefault()
+      try {
+        await DB.saveClienteExtra(id, {
+          whatsapp: document.getElementById('f-whats').value.trim(),
+          email:    document.getElementById('f-email').value.trim(),
+          tarifa:   0.82,
+          endereco: document.getElementById('f-endereco').value.trim(),
+        })
+        document.getElementById('modal-cliente').classList.remove('open')
+        Pages.openPerfil(id)
+        this.toast(`Cliente ${c.nome} atualizado!`)
+      } catch(err) {
+        this.toast('Erro ao salvar. Tente novamente.', 'warn')
       }
-    })
-    .catch(() => this.toast('Erro ao enviar. Tente novamente.', 'warn'))
-  }
-  document.getElementById('modal-relatorio').classList.add('open')
-},
+    }
+  },
+
+  editarCliente(id) {
+    const c = DB.getCliente(id)
+    if (!c) return
+    document.getElementById('f-nome').value = c.nome
+    document.getElementById('f-tipo').value = c.tipo
+    document.getElementById('f-potencia').value = c.potencia
+    document.getElementById('f-paineis').value = c.paineis
+    document.getElementById('f-email').value = c.email
+    document.getElementById('f-whats').value = c.whats
+    document.getElementById('f-endereco').value = c.endereco
+    document.getElementById('f-inversor').value = c.inversor
+    document.getElementById('modal-title').textContent = `Editar — ${c.nome}`
+    document.getElementById('modal-cliente').classList.add('open')
+    document.getElementById('form-cliente').onsubmit = async (e) => {
+      e.preventDefault()
+      const dados = {
+        nome: document.getElementById('f-nome').value.trim(),
+        tipo: document.getElementById('f-tipo').value,
+        potencia: parseFloat(document.getElementById('f-potencia').value),
+        paineis: parseInt(document.getElementById('f-paineis').value),
+        email: document.getElementById('f-email').value.trim(),
+        whats: document.getElementById('f-whats').value.trim(),
+        endereco: document.getElementById('f-endereco').value.trim(),
+        inversor: document.getElementById('f-inversor').value,
+      }
+      DB._supabase.from('clientes').update({
+        nome: dados.nome, tipo: dados.tipo, email: dados.email,
+        whatsapp: dados.whats, endereco: dados.endereco,
+        potencia: dados.potencia, paineis: dados.paineis,
+        inversor: dados.inversor,
+      }).eq('id', id).then(() => {
+        document.getElementById('modal-cliente').classList.remove('open')
+        DB.load().then(() => {
+          this.render('clientes')
+          this.toast(`Cliente ${dados.nome} atualizado!`)
+        })
+      })
+    }
+  },
+
+  excluirCliente(id, nome) {
+    if (!confirm(`Tem certeza que deseja excluir o cliente ${nome}?`)) return
+    DB._supabase.from('clientes').delete().eq('id', id)
+      .then(() => {
+        DB.load().then(() => {
+          Pages.closePerfil()
+          this.render('clientes')
+          this.toast(`Cliente ${nome} excluído!`)
+        })
+      })
+  },
+
+  sendRelatorio(clienteId) {
+    const c = DB.getCliente(clienteId)
+    if (!c) return
+    const economia = DB.computeEconomia(c)
+    const percMeta = Math.round((c.geracaoMes / c.metaMes) * 100) || 0
+    document.getElementById('preview-relatorio').innerHTML = `
+      <div style="background:var(--bg-secondary);border-radius:8px;padding:14px;font-size:12px;line-height:1.8;">
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Relatório Solar — Maio 2026</div>
+        <div style="margin-bottom:8px;color:#666;">Para: ${c.nome} &lt;${c.email}&gt; ${c.whats ? '· WhatsApp: ' + c.whats : ''}</div>
+        <strong>Geração:</strong> ${c.geracaoMes} kWh (${percMeta}% da meta)<br>
+        <strong>Economia:</strong> ${economia}<br>
+        <strong>Status:</strong> ${c.statusLabel}<br>
+        <strong>Inversor:</strong> ${c.inversor}
+      </div>`
+    document.getElementById('btn-enviar-preview').onclick = () => {
+      document.getElementById('modal-relatorio').classList.remove('open')
+      this.toast('Enviando relatório...')
+      fetch('https://ovqwavrbxdplehvgplcv.supabase.co/functions/v1/send-relatorio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM',
+        },
+        body: JSON.stringify({
+          mes: 'Maio 2026',
+          cliente: {
+            nome: c.nome, email: c.email, whats: c.whats,
+            geracaoMes: c.geracaoMes, metaMes: c.metaMes,
+            tarifa: c.tarifa, statusLabel: c.statusLabel, inversor: c.inversor,
+          }
+        })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) this.toast('Relatório enviado com sucesso!')
+        else this.toast('Erro ao enviar. Tente novamente.', 'warn')
+      })
+      .catch(() => this.toast('Erro ao enviar. Tente novamente.', 'warn'))
+    }
+    document.getElementById('modal-relatorio').classList.add('open')
+  },
 
   previewRelatorio(relId) {
     const r = relId === 'preview'
@@ -274,13 +299,12 @@ sendRelatorio(clienteId) {
   resolverAlerta(id) {
     const idx = DB.alertas.findIndex(a => a.id === id);
     if (idx === -1) return;
-    const a = DB.alertas[idx];
     DB.alertas.splice(idx, 1);
     DB.dashKpis.alertasAtivos = DB.alertas.length;
     const el = document.getElementById('alerta-' + id);
     if (el) el.style.display = 'none';
     this.updateAlertBadge();
-    this.toast(`Alerta resolvido!`);
+    this.toast('Alerta resolvido!');
   },
 
   updateAlertBadge() {
@@ -313,19 +337,20 @@ sendRelatorio(clienteId) {
   },
 
   async recarregarDados() {
-  this.toast('Atualizando dados...');
-  await GDash.load();
-  this.render(this.currentPage);
-  const badge = document.getElementById('badge-alertas');
-  if (badge) badge.textContent = DB.alertas.length;
-  this.toast('Dados atualizados!');
-},
-  
-logout() {
-  DB._supabase.auth.signOut().then(() => {
-    window.location.href = 'login.html';
-  });
-},
+    this.toast('Atualizando dados...');
+    await GDash.load();
+    this.render(this.currentPage);
+    const badge = document.getElementById('badge-alertas');
+    if (badge) badge.textContent = DB.alertas.length;
+    this.toast('Dados atualizados!');
+  },
+
+  logout() {
+    DB._supabase.auth.signOut().then(() => {
+      window.location.href = 'login.html';
+    });
+  },
+
   toast(msg, type = 'ok') {
     const el = document.getElementById('toast');
     el.textContent = msg;
