@@ -311,7 +311,11 @@ sendRelatorio(clienteId) {
   salvarConfig() {
     this.toast('Configurações salvas!');
   },
-
+logout() {
+  DB._supabase.auth.signOut().then(() => {
+    window.location.href = 'login.html';
+  });
+},
   toast(msg, type = 'ok') {
     const el = document.getElementById('toast');
     el.textContent = msg;
