@@ -117,27 +117,23 @@ const GDash = (() => {
     DB.dashKpis.geracaoHoje    = parseFloat(m.totalPower.toFixed(2));
     DB.dashKpis.economiaMes    = Math.round(m.onlinePower * 0.82 * 30);
 
-    // Gráfico geração 7 dias — variação realista baseada na potência online
+    // Gráfico geração 7 dias
     const base = m.onlinePower * 4.5;
     DB.dashKpis.geracaoDias = [
-      Math.round(base * 0.91),
-      Math.round(base * 0.95),
-      Math.round(base * 1.02),
-      Math.round(base * 0.98),
-      Math.round(base * 1.05),
-      Math.round(base * 0.72),
+      Math.round(base * 0.91), Math.round(base * 0.95), Math.round(base * 1.02),
+      Math.round(base * 0.98), Math.round(base * 1.05), Math.round(base * 0.72),
       Math.round(base * 0.68),
     ];
 
     // Gráfico economia acumulada 2026
     const eco = DB.dashKpis.economiaMes;
     DB.dashKpis.economiaMeses = [
-      Math.round(eco * 0.78),
-      Math.round(eco * 0.82),
-      Math.round(eco * 0.88),
-      Math.round(eco * 0.94),
-      Math.round(eco),
+      Math.round(eco * 0.78), Math.round(eco * 0.82), Math.round(eco * 0.88),
+      Math.round(eco * 0.94), Math.round(eco),
     ];
+
+    // Carrega dados extras (WhatsApp, e-mail, tarifa editados)
+    await DB.loadClientesExtra();
 
     console.log('[GDash] OK:', {
       total: m.total, online: m.online,
@@ -146,10 +142,4 @@ const GDash = (() => {
   }
 
   return { fetchPlants, calcMetrics, plantToCliente, plantToInversor, plantToAlerta, load };
-})();
-
-(function autoInit() {
-  document.addEventListener('DOMContentLoaded', () => {
-    // Removido — carregamento agora feito pelo App.init()
-  });
 })();
