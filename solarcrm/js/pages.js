@@ -666,6 +666,14 @@ const Pages = {
         <div class="card-title">Alertas ativos</div>
         <div class="card-meta">Clique para diagnosticar</div>
       </div>
+      <div style="padding:10px 16px;border-bottom:1px solid var(--border);">
+        <div style="position:relative;">
+          <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-secondary);font-size:14px;"></i>
+          <input type="text" id="busca-alertas" placeholder="Buscar por nome do cliente..." 
+            oninput="Pages.filtrarAlertas(this.value)"
+            style="width:100%;padding:8px 12px 8px 32px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg-secondary);outline:none;" />
+        </div>
+      </div>
       <div id="alertas-list">${items}</div>
       ${DB.alertas.length === 0 ? '<div class="text-center text-muted" style="padding:20px 0;">Nenhum alerta ativo.</div>' : ''}
     </div>`;
@@ -747,35 +755,51 @@ const Pages = {
     </div>`;
   },
 
+  // ---- Filtro de alertas ----
+  filtrarAlertas(termo) {
+    const lista = document.getElementById('alertas-list');
+    if (!lista) return;
+    const t = termo.toLowerCase().trim();
+    lista.querySelectorAll('.alert-item').forEach(el => {
+      const txt = el.querySelector('.atxt')?.textContent?.toLowerCase() || '';
+      el.style.display = (!t || txt.includes(t)) ? '' : 'none';
+    });
+    // Mostra contador
+    const visiveis = [...lista.querySelectorAll('.alert-item')].filter(el => el.style.display !== 'none').length;
+    const meta = document.querySelector('.card-hdr .card-meta');
+    if (meta) meta.textContent = t ? `${visiveis} resultado(s)` : 'Clique para diagnosticar';
+  },
+
   // ---- Configurações ----
-  config() {
+  config(cfg = {}) {
+    const on = (val) => val === false ? 'off' : '';
     return `
     <div class="grid-2">
       <div class="card">
         <div class="card-hdr"><div class="card-title">Envio de relatórios</div></div>
         <div class="config-row">
           <div><div class="config-label">Envio automático mensal</div><div class="config-sub">1º dia de cada mês</div></div>
-          <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle envio automático"></button>
+          <button class="toggle ${on(cfg.envioAutomatico)}" onclick="this.classList.toggle('off')" aria-label="Toggle envio automático"></button>
         </div>
         <div class="config-row">
           <div><div class="config-label">E-mail (Resend)</div><div class="config-sub">Configurado e ativo</div></div>
-          <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle email"></button>
+          <button class="toggle ${on(cfg.email)}" onclick="this.classList.toggle('off')" aria-label="Toggle email"></button>
         </div>
         <div class="config-row">
           <div><div class="config-label">WhatsApp Business API</div><div class="config-sub">Evolution API no Railway</div></div>
-          <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle WhatsApp"></button>
+          <button class="toggle ${on(cfg.whatsapp)}" onclick="this.classList.toggle('off')" aria-label="Toggle WhatsApp"></button>
         </div>
         <div class="config-row">
           <div><div class="config-label">PDF automático</div><div class="config-sub">Gerado para todos os clientes</div></div>
-          <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle PDF"></button>
+          <button class="toggle ${on(cfg.pdf)}" onclick="this.classList.toggle('off')" aria-label="Toggle PDF"></button>
         </div>
         <div class="form-group mt-8">
           <label>E-mail remetente</label>
-          <input type="email" value="relatorios@suaempresa.com.br" />
+          <input type="email" value="${cfg.emailRemetente || 'relatorios@suaempresa.com.br'}" />
         </div>
         <div class="form-group">
           <label>Nome do remetente</label>
-          <input type="text" value="Infortel Solar — SolarCRM" />
+          <input type="text" placeholder="Infortel Solar — SolarCRM" value="${cfg.nomeRemetente || 'Infortel Solar — SolarCRM'}" />
         </div>
       </div>
       <div class="card">
@@ -805,15 +829,15 @@ const Pages = {
       <div class="card-hdr"><div class="card-title">Alertas automáticos</div></div>
       <div class="config-row">
         <div><div class="config-label">Inversor offline por mais de 2h</div><div class="config-sub">Notifica gestor e cliente por e-mail</div></div>
-        <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle alerta inversor"></button>
+        <button class="toggle ${on(cfg.alertaOffline)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta inversor"></button>
       </div>
       <div class="config-row">
         <div><div class="config-label">Geração abaixo de 70% da meta</div><div class="config-sub">Notifica gestor</div></div>
-        <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle alerta geração"></button>
+        <button class="toggle ${on(cfg.alertaGeracao)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta geração"></button>
       </div>
       <div class="config-row">
         <div><div class="config-label">Queda de eficiência &gt;5% em 30 dias</div><div class="config-sub">Sugere manutenção preventiva</div></div>
-        <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle alerta eficiência"></button>
+        <button class="toggle ${on(cfg.alertaEficiencia)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta eficiência"></button>
       </div>
       <div style="text-align:right;margin-top:12px;">
         <button class="btn btn-teal" onclick="App.salvarConfig()">
