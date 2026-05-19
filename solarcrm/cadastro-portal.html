@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro em Massa — Portal Clientes</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #F4F6F8; padding: 24px; color: #1A1A2E; }
+    .card { background: white; border-radius: 12px; border: 1px solid #E5E7EB; padding: 24px; max-width: 900px; margin: 0 auto 20px; }
+    h1 { font-size: 20px; margin-bottom: 6px; }
+    p { font-size: 13px; color: #6B7280; margin-bottom: 20px; }
+    .btn { padding: 10px 20px; background: #1D9E75; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-right: 8px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-red { background: #E24B4A; }
+    .log { background: #F4F6F8; border-radius: 8px; padding: 16px; font-size: 12px; font-family: monospace; height: 400px; overflow-y: auto; border: 1px solid #E5E7EB; }
+    .log-line { padding: 2px 0; border-bottom: 1px solid #E5E7EB; }
+    .ok { color: #1D9E75; }
+    .err { color: #E24B4A; }
+    .warn { color: #EF9F27; }
+    .progress { height: 8px; background: #E5E7EB; border-radius: 4px; margin: 12px 0; overflow: hidden; }
+    .progress-bar { height: 100%; background: #1D9E75; border-radius: 4px; transition: width 0.3s; width: 0%; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat { background: #F4F6F8; border-radius: 8px; padding: 12px; text-align: center; }
+    .stat-val { font-size: 24px; font-weight: 700; }
+    .stat-lbl { font-size: 11px; color: #6B7280; }
+    input[type="email"], input[type="password"] { width: 100%; padding: 10px 12px; border: 1px solid #E5E7EB; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+    label { font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px; }
+    .step { background: #E1F5EE; border-left: 3px solid #1D9E75; padding: 12px 16px; border-radius: 4px; margin-bottom: 12px; font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>🌞 Cadastro em Massa — Portal do Cliente</h1>
+  <p>Esta ferramenta cria usuários no Supabase Auth e vincula cada um à sua planta no GDASH.<br>
+  Use apenas uma vez para cadastrar todos os clientes. Cada cliente receberá um e-mail de confirmação.</p>
+
+  <div class="step">
+    <strong>Como funciona:</strong><br>
+    1. Busca todas as plantas do GDASH<br>
+    2. Para cada planta, verifica se já existe usuário com aquele e-mail<br>
+    3. Se não existir, cria o usuário com senha temporária<br>
+    4. Vincula o usuário à planta na tabela <code>portal_clientes</code>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+    <div>
+      <label>Senha padrão para todos os clientes</label>
+      <input type="text" id="senha-padrao" value="Solar@2026" placeholder="Senha temporária" />
+      <small style="color:#6B7280;font-size:11px;">Os clientes podem trocar depois no portal</small>
+    </div>
+    <div>
+      <label>E-mail admin Supabase (service role)</label>
+      <input type="password" id="service-key" placeholder="Cole aqui o SERVICE_ROLE key do Supabase" />
+      <small style="color:#E24B4A;font-size:11px;">⚠️ Use apenas localmente — nunca publique esta chave!</small>
+    </div>
+  </div>
+
+  <div style="margin-bottom:16px;">
+    <button class="btn" onclick="iniciarCadastro()" id="btn-iniciar">🚀 Iniciar cadastro em massa</button>
+    <button class="btn btn-red" onclick="pararCadastro()" id="btn-parar" disabled>⏹ Parar</button>
+    <button class="btn" style="background:#6B7280;" onclick="limparLog()">🗑 Limpar log</button>
+  </div>
+
+  <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-val ok" id="stat-ok">0</div><div class="stat-lbl">Criados</div></div>
+    <div class="stat"><div class="stat-val warn" id="stat-skip">0</div><div class="stat-lbl">Já existiam</div></div>
+    <div class="stat"><div class="stat-val err" id="stat-err">0</div><div class="stat-lbl">Erros</div></div>
+    <div class="stat"><div class="stat-val" id="stat-total">0</div><div class="stat-lbl">Total</div></div>
+  </div>
+
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ovqwavrbxdplehvgplcv.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM';
+
+let rodando = false;
+let statsOk = 0, statsSkip = 0, statsErr = 0;
+
+const sb = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+function log(msg, tipo = '') {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = `log-line ${tipo}`;
+  line.textContent = `[${new Date().toLocaleTimeString('pt-BR')}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function limparLog() {
+  document.getElementById('log').innerHTML = '';
+  statsOk = statsSkip = statsErr = 0;
+  atualizarStats(0, 0);
+}
+
+function atualizarStats(atual, total) {
+  document.getElementById('stat-ok').textContent    = statsOk;
+  document.getElementById('stat-skip').textContent  = statsSkip;
+  document.getElementById('stat-err').textContent   = statsErr;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('progress-bar').style.width = total > 0 ? `${(atual/total)*100}%` : '0%';
+}
+
+function pararCadastro() {
+  rodando = false;
+  log('⏹ Cadastro interrompido pelo usuário.', 'warn');
+}
+
+async function iniciarCadastro() {
+  const senhaPadrao = document.getElementById('senha-padrao').value.trim();
+  const serviceKey  = document.getElementById('service-key').value.trim();
+
+  if (!senhaPadrao) { alert('Informe a senha padrão.'); return; }
+  if (!serviceKey)  { alert('Informe o SERVICE_ROLE key do Supabase.'); return; }
+  if (!confirm('Isso vai criar usuários para todos os clientes do GDASH. Confirmar?')) return;
+
+  rodando = true;
+  statsOk = statsSkip = statsErr = 0;
+  document.getElementById('btn-iniciar').disabled = true;
+  document.getElementById('btn-parar').disabled   = false;
+
+  // Admin client com service role
+  const sbAdmin = supabase.createClient(SUPABASE_URL, serviceKey);
+
+  log('🔍 Buscando plantas do GDASH...');
+  let plants = [];
+  try {
+    const res  = await fetch('/api/gdash');
+    const json = await res.json();
+    plants = json.data || [];
+    log(`✅ ${plants.length} plantas encontradas.`, 'ok');
+  } catch(e) {
+    log(`❌ Erro ao buscar GDASH: ${e.message}`, 'err');
+    document.getElementById('btn-iniciar').disabled = false;
+    return;
+  }
+
+  // Busca vínculos já existentes
+  const { data: existentes } = await sb.from('portal_clientes').select('plant_id');
+  const plantasVinculadas = new Set((existentes || []).map(e => e.plant_id));
+  log(`ℹ️ ${plantasVinculadas.size} plantas já vinculadas no portal.`);
+
+  let processados = 0;
+  for (const plant of plants) {
+    if (!rodando) break;
+
+    processados++;
+    atualizarStats(processados, plants.length);
+
+    // Pula se já vinculada
+    if (plantasVinculadas.has(plant.id)) {
+      statsSkip++;
+      log(`⏭ Já existe: ${plant.name}`, 'warn');
+      atualizarStats(processados, plants.length);
+      continue;
+    }
+
+    // Usa e-mail único por planta (plant.id como domínio)
+    const email = `${plant.id.toLowerCase().replace(/[^a-z0-9]/g,'')}@infortelsolar.portal`;
+
+    try {
+      // Cria usuário no Supabase Auth
+      const { data: userData, error: userError } = await sbAdmin.auth.admin.createUser({
+        email,
+        password: senhaPadrao,
+        email_confirm: true,
+      });
+
+      if (userError && !userError.message.includes('already registered')) {
+        throw userError;
+      }
+
+      const userId = userData?.user?.id;
+      if (!userId) {
+        statsSkip++;
+        log(`⏭ Usuário já existe: ${plant.name}`, 'warn');
+        atualizarStats(processados, plants.length);
+        continue;
+      }
+
+      // Vincula à planta
+      await sb.from('portal_clientes').insert({
+        user_id:    userId,
+        plant_id:   plant.id,
+        plant_name: plant.name,
+      });
+
+      statsOk++;
+      log(`✅ Criado: ${plant.name} → ${email}`, 'ok');
+
+    } catch(e) {
+      statsErr++;
+      log(`❌ Erro em ${plant.name}: ${e.message}`, 'err');
+    }
+
+    atualizarStats(processados, plants.length);
+    // Pequena pausa para não sobrecarregar a API
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  rodando = false;
+  document.getElementById('btn-iniciar').disabled = false;
+  document.getElementById('btn-parar').disabled   = true;
+  log(`🏁 Concluído! Criados: ${statsOk} | Já existiam: ${statsSkip} | Erros: ${statsErr}`, 'ok');
+}
+</script>
+</body>
+</html>
