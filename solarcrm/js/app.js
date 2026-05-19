@@ -5,18 +5,70 @@
 const App = {
   currentPage: 'dashboard',
   toastTimer: null,
+  config: {
+    envioAutomatico: true,
+    email: true,
+    whatsapp: true,
+    pdf: true,
+    alertaOffline: true,
+    alertaGeracao: true,
+    alertaEficiencia: true,
+    emailRemetente: 'relatorios@suaempresa.com.br',
+    nomeRemetente: 'Infortel Solar — SolarCRM',
+  },
 
-async init() {
-  DB.init()
-  this.bindNav()
-  this.bindModal()
-  this.bindTopbar()
-  this.bindMenu()
-  await GDash.load()
-  this.render('dashboard')
-  const badge = document.getElementById('badge-alertas')
-  if (badge) badge.textContent = DB.alertas.length
-},
+  async init() {
+    DB.init()
+    this.bindNav()
+    this.bindModal()
+    this.bindTopbar()
+    this.bindMenu()
+    await GDash.load()
+    await this.loadConfig()
+    this.render('dashboard')
+    const badge = document.getElementById('badge-alertas')
+    if (badge) badge.textContent = DB.alertas.length
+  },
+
+  // ── Configurações persistentes ──────────────────────────────
+  async loadConfig() {
+    try {
+      const { data } = await DB._supabase
+        .from('configuracoes')
+        .select('*')
+        .eq('id', 'app_config')
+        .single()
+      if (data?.valor) {
+        this.config = { ...this.config, ...data.valor }
+      }
+    } catch(e) { /* usa config padrão */ }
+  },
+
+  async salvarConfig() {
+    // Lê os valores atuais dos toggles e campos
+    const toggles = {
+      envioAutomatico: !document.querySelector('[aria-label="Toggle envio automático"]')?.classList.contains('off'),
+      email:           !document.querySelector('[aria-label="Toggle email"]')?.classList.contains('off'),
+      whatsapp:        !document.querySelector('[aria-label="Toggle WhatsApp"]')?.classList.contains('off'),
+      pdf:             !document.querySelector('[aria-label="Toggle PDF"]')?.classList.contains('off'),
+      alertaOffline:   !document.querySelector('[aria-label="Toggle alerta inversor"]')?.classList.contains('off'),
+      alertaGeracao:   !document.querySelector('[aria-label="Toggle alerta geração"]')?.classList.contains('off'),
+      alertaEficiencia:!document.querySelector('[aria-label="Toggle alerta eficiência"]')?.classList.contains('off'),
+      emailRemetente:  document.querySelector('input[type="email"]')?.value || this.config.emailRemetente,
+      nomeRemetente:   document.querySelector('input[placeholder="Infortel Solar — SolarCRM"], .config-row input[type="text"]')?.value || this.config.nomeRemetente,
+    }
+    this.config = { ...this.config, ...toggles }
+    try {
+      await DB._supabase.from('configuracoes').upsert({
+        id: 'app_config',
+        valor: this.config,
+        updated_at: new Date().toISOString(),
+      })
+      this.toast('Configurações salvas!')
+    } catch(e) {
+      this.toast('Erro ao salvar configurações.', 'warn')
+    }
+  },
 
   bindNav() {
     document.querySelectorAll('.nav-item[data-page]').forEach(el => {
@@ -42,12 +94,12 @@ async init() {
     document.getElementById('pbread').textContent = '';
     const content = document.querySelector('.content');
     const builders = {
-      dashboard: () => Pages.dashboard(),
-      clientes: () => Pages.clientes(),
+      dashboard:  () => Pages.dashboard(),
+      clientes:   () => Pages.clientes(),
       inversores: () => Pages.inversores(),
       relatorios: () => Pages.relatorios(),
-      alertas: () => Pages.alertas(),
-      config: () => Pages.config(),
+      alertas:    () => Pages.alertas(),
+      config:     () => Pages.config(this.config),
     };
     content.innerHTML = builders[pageId] ? builders[pageId]() : '<p>Página não encontrada.</p>';
     requestAnimationFrame(() => {
@@ -62,7 +114,7 @@ async init() {
     });
     document.addEventListener('click', e => {
       const sidebar = document.getElementById('sidebar');
-      const toggle = document.getElementById('menu-toggle');
+      const toggle  = document.getElementById('menu-toggle');
       if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== toggle) {
         sidebar.classList.remove('open');
       }
@@ -77,15 +129,9 @@ async init() {
       document.getElementById('form-cliente').onsubmit = (e) => { e.preventDefault(); this.salvarCliente(); };
       overlay.classList.add('open');
     });
-    document.getElementById('modal-close').addEventListener('click', () => {
-      overlay.classList.remove('open');
-    });
-    document.getElementById('btn-cancel-modal').addEventListener('click', () => {
-      overlay.classList.remove('open');
-    });
-    overlay.addEventListener('click', e => {
-      if (e.target === overlay) overlay.classList.remove('open');
-    });
+    document.getElementById('modal-close').addEventListener('click', () => overlay.classList.remove('open'));
+    document.getElementById('btn-cancel-modal').addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
     const relOverlay = document.getElementById('modal-relatorio');
     document.getElementById('modal-rel-close').addEventListener('click', () => relOverlay.classList.remove('open'));
     document.getElementById('btn-cancel-rel').addEventListener('click', () => relOverlay.classList.remove('open'));
@@ -96,19 +142,17 @@ async init() {
   },
 
   bindTopbar() {
-    document.getElementById('btn-enviar-relatorios').addEventListener('click', () => {
-      this.enviarTodosRelatorios();
-    });
+    document.getElementById('btn-enviar-relatorios').addEventListener('click', () => this.enviarTodosRelatorios());
   },
 
   salvarCliente() {
     const dados = {
-      nome: document.getElementById('f-nome').value.trim(),
-      tipo: document.getElementById('f-tipo').value,
+      nome:     document.getElementById('f-nome').value.trim(),
+      tipo:     document.getElementById('f-tipo').value,
       potencia: parseFloat(document.getElementById('f-potencia').value),
-      paineis: parseInt(document.getElementById('f-paineis').value),
-      email: document.getElementById('f-email').value.trim(),
-      whats: document.getElementById('f-whats').value.trim(),
+      paineis:  parseInt(document.getElementById('f-paineis').value),
+      email:    document.getElementById('f-email').value.trim(),
+      whats:    document.getElementById('f-whats').value.trim(),
       endereco: document.getElementById('f-endereco').value.trim(),
       inversor: document.getElementById('f-inversor').value,
     };
@@ -160,12 +204,12 @@ async init() {
   editarCliente(id) {
     const c = DB.getCliente(id)
     if (!c) return
-    document.getElementById('f-nome').value = c.nome
-    document.getElementById('f-tipo').value = c.tipo
+    document.getElementById('f-nome').value     = c.nome
+    document.getElementById('f-tipo').value     = c.tipo
     document.getElementById('f-potencia').value = c.potencia
-    document.getElementById('f-paineis').value = c.paineis
-    document.getElementById('f-email').value = c.email
-    document.getElementById('f-whats').value = c.whats
+    document.getElementById('f-paineis').value  = c.paineis
+    document.getElementById('f-email').value    = c.email
+    document.getElementById('f-whats').value    = c.whats
     document.getElementById('f-endereco').value = c.endereco
     document.getElementById('f-inversor').value = c.inversor
     document.getElementById('modal-title').textContent = `Editar — ${c.nome}`
@@ -173,40 +217,35 @@ async init() {
     document.getElementById('form-cliente').onsubmit = async (e) => {
       e.preventDefault()
       const dados = {
-        nome: document.getElementById('f-nome').value.trim(),
-        tipo: document.getElementById('f-tipo').value,
+        nome:     document.getElementById('f-nome').value.trim(),
+        tipo:     document.getElementById('f-tipo').value,
         potencia: parseFloat(document.getElementById('f-potencia').value),
-        paineis: parseInt(document.getElementById('f-paineis').value),
-        email: document.getElementById('f-email').value.trim(),
-        whats: document.getElementById('f-whats').value.trim(),
+        paineis:  parseInt(document.getElementById('f-paineis').value),
+        email:    document.getElementById('f-email').value.trim(),
+        whats:    document.getElementById('f-whats').value.trim(),
         endereco: document.getElementById('f-endereco').value.trim(),
         inversor: document.getElementById('f-inversor').value,
       }
       DB._supabase.from('clientes').update({
         nome: dados.nome, tipo: dados.tipo, email: dados.email,
         whatsapp: dados.whats, endereco: dados.endereco,
-        potencia: dados.potencia, paineis: dados.paineis,
-        inversor: dados.inversor,
+        potencia: dados.potencia, paineis: dados.paineis, inversor: dados.inversor,
       }).eq('id', id).then(() => {
         document.getElementById('modal-cliente').classList.remove('open')
-        DB.load().then(() => {
-          this.render('clientes')
-          this.toast(`Cliente ${dados.nome} atualizado!`)
-        })
+        DB.load().then(() => { this.render('clientes'); this.toast(`Cliente ${dados.nome} atualizado!`) })
       })
     }
   },
 
   excluirCliente(id, nome) {
     if (!confirm(`Tem certeza que deseja excluir o cliente ${nome}?`)) return
-    DB._supabase.from('clientes').delete().eq('id', id)
-      .then(() => {
-        DB.load().then(() => {
-          Pages.closePerfil()
-          this.render('clientes')
-          this.toast(`Cliente ${nome} excluído!`)
-        })
+    DB._supabase.from('clientes').delete().eq('id', id).then(() => {
+      DB.load().then(() => {
+        Pages.closePerfil()
+        this.render('clientes')
+        this.toast(`Cliente ${nome} excluído!`)
       })
+    })
   },
 
   sendRelatorio(clienteId) {
@@ -286,14 +325,10 @@ async init() {
     document.getElementById('modal-relatorio').classList.add('open');
   },
 
-  customizarTemplate() {
-    this.toast('Personalize em css/style.css');
-  },
+  customizarTemplate() { this.toast('Personalize em css/style.css'); },
 
   diagnosticarAlerta(id) {
-    const a = DB.alertas.find(a => a.id === id);
-    if (!a) return;
-    alert(`Diagnóstico — ${a.titulo}\n\n${a.detalhe}`);
+    Pages.abrirDiagnostico(id);
   },
 
   resolverAlerta(id) {
@@ -316,13 +351,13 @@ async init() {
   },
 
   addInversor() {
-    const fab = document.getElementById('inv-fab')?.value;
-    const serial = document.getElementById('inv-serial')?.value?.trim();
+    const fab      = document.getElementById('inv-fab')?.value;
+    const serial   = document.getElementById('inv-serial')?.value?.trim();
     const clienteId = document.getElementById('inv-cliente')?.value;
     if (!serial) { this.toast('Informe o número de série.', 'warn'); return; }
     const cliente = DB.getCliente(clienteId);
     DB.inversores.push({
-      id: 'inv' + Date.now(), sigla: fab.slice(0, 3).toUpperCase(),
+      id: 'inv' + Date.now(), sigla: fab.slice(0,3).toUpperCase(),
       bgCol: '#E1F5EE', txtCol: '#0F6E56',
       modelo: fab + ' (novo)', status: 'ok', statusLabel: 'Online',
       cliente: cliente?.nome || 'Desconhecido', serial,
@@ -330,10 +365,6 @@ async init() {
     });
     this.toast(`Inversor ${fab} adicionado!`);
     this.render('inversores');
-  },
-
-  salvarConfig() {
-    this.toast('Configurações salvas!');
   },
 
   async recarregarDados() {
@@ -346,9 +377,7 @@ async init() {
   },
 
   logout() {
-    DB._supabase.auth.signOut().then(() => {
-      window.location.href = 'login.html';
-    });
+    DB._supabase.auth.signOut().then(() => { window.location.href = 'login.html'; });
   },
 
   toast(msg, type = 'ok') {
