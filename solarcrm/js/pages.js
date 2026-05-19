@@ -1,6 +1,6 @@
 // ============================================================
 //  SolarCRM — Construtores de páginas (HTML strings)
-//  v3.0 — Layout e visual melhorado
+//  v4.0 — Modal diagnóstico alertas + perfil inversores
 // ============================================================
 
 const Pages = {
@@ -27,18 +27,11 @@ const Pages = {
     const criticos = DB.alertas.filter(a => a.tipo === 'err').length;
     const alertasSub = criticos > 0 ? `${criticos} críticos` : 'Tudo monitorado';
     const alertasClass = criticos > 0 ? 'err' : 'ok';
-
-    // Top 5 piores performers
-    const piores = [...DB.clientes]
-      .filter(c => c.performance < 100)
-      .sort((a, b) => a.performance - b.performance)
-      .slice(0, 5);
-
+    const piores = [...DB.clientes].filter(c => c.performance < 100).sort((a, b) => a.performance - b.performance).slice(0, 5);
     const alertasRecentes = DB.alertas.slice(0, 3);
     const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     return `
-    <!-- Resumo rápido topo -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="display:inline-flex;align-items:center;gap:5px;background:#E1F5EE;color:#0F6E56;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;">
@@ -56,7 +49,6 @@ const Pages = {
       </button>
     </div>
 
-    <!-- KPI Cards -->
     <div class="grid-metrics">
       <div class="mcard" style="border-left:3px solid #1D9E75;">
         <div class="mcard-label"><i class="ti ti-bolt" style="color:#1D9E75;"></i>Geração hoje</div>
@@ -80,39 +72,29 @@ const Pages = {
       </div>
     </div>
 
-    <!-- Gráficos lado a lado -->
     <div class="grid-2">
       <div class="card mb-0">
         <div class="card-hdr">
           <div class="card-title">Geração — últimos 7 dias</div>
           <div class="card-meta">Total: ${d.geracaoDias.reduce((a,b)=>a+b,0).toLocaleString('pt-BR')} kWh</div>
         </div>
-        <div class="chart-wrap">
-          <canvas id="chart-geracao-dias" role="img" aria-label="Geração diária"></canvas>
-        </div>
+        <div class="chart-wrap"><canvas id="chart-geracao-dias"></canvas></div>
       </div>
       <div class="card mb-0">
         <div class="card-hdr">
           <div class="card-title">Economia acumulada 2026</div>
           <div class="card-meta">R$ / mês</div>
         </div>
-        <div class="chart-wrap">
-          <canvas id="chart-economia-meses" role="img" aria-label="Economia acumulada"></canvas>
-        </div>
+        <div class="chart-wrap"><canvas id="chart-economia-meses"></canvas></div>
       </div>
     </div>
 
-    <!-- Performance + Alertas -->
     <div class="grid-2" style="margin-bottom:0;">
       <div class="card mb-0">
         <div class="card-hdr">
           <div class="card-title">⚠️ Plantas com baixa performance</div>
-          <div class="card-meta">
-            <button class="btn btn-sm" onclick="App.navTo('clientes')" style="font-size:11px;">Ver todas</button>
-          </div>
+          <div class="card-meta"><button class="btn btn-sm" onclick="App.navTo('clientes')" style="font-size:11px;">Ver todas</button></div>
         </div>
-
-        <!-- Resumo performance -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-bottom:1px solid var(--border);">
           <div style="padding:12px 16px;text-align:center;border-right:1px solid var(--border);">
             <div style="font-size:20px;font-weight:700;color:#1D9E75;">${DB.clientes.filter(c=>c.performance>=80).length}</div>
@@ -127,8 +109,6 @@ const Pages = {
             <div style="font-size:11px;color:var(--text-secondary);">Abaixo de 50%</div>
           </div>
         </div>
-
-        <!-- Top 5 piores -->
         ${piores.length > 0 ? piores.map(c => `
           <div class="prow" style="padding:10px 16px;">
             <div class="plabel">
@@ -139,10 +119,7 @@ const Pages = {
               <span class="${c.performance >= 80 ? 'ok' : c.performance >= 50 ? 'warn' : 'err'}" style="font-size:12px;font-weight:600;">${c.performance}%</span>
             </div>
             ${this.perfBar(c.performance)}
-          </div>
-        `).join('') : `<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-secondary);">✅ Todas as plantas com boa performance</div>`}
-
-        <!-- Todas as plantas (scroll) -->
+          </div>`).join('') : `<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-secondary);">✅ Todas as plantas com boa performance</div>`}
         <div style="max-height:200px;overflow-y:auto;border-top:1px solid var(--border);">
           ${DB.clientes.filter(c=>c.performance>=80).slice(0,10).map(c => `
             <div class="prow" style="padding:8px 16px;">
@@ -151,8 +128,7 @@ const Pages = {
                 <span class="ok" style="font-size:12px;">${c.performance}%</span>
               </div>
               ${this.perfBar(c.performance)}
-            </div>
-          `).join('')}
+            </div>`).join('')}
         </div>
       </div>
 
@@ -162,31 +138,23 @@ const Pages = {
           <button class="btn btn-sm" onclick="App.navTo('alertas')">Ver todos (${DB.alertas.length})</button>
         </div>
         ${alertasRecentes.length > 0 ? alertasRecentes.map(a => `
-          <div class="alert-item a-${a.tipo}" style="padding:12px 16px;">
+          <div class="alert-item a-${a.tipo}" style="padding:12px 16px;cursor:pointer;" onclick="Pages.abrirDiagnostico('${a.id}')">
             <i class="ti ${a.icon}"></i>
             <div class="atxt" style="flex:1;">
               <div style="font-weight:600;font-size:13px;">${a.titulo}</div>
               <div class="atime" style="font-size:11px;margin-top:2px;">${a.detalhe}</div>
             </div>
-            <button class="btn btn-sm" onclick="App.navTo('alertas')">Ver</button>
-          </div>
-        `).join('') : `
+            <button class="btn btn-sm" onclick="event.stopPropagation();App.navTo('alertas')">Ver</button>
+          </div>`).join('') : `
           <div style="padding:24px;text-align:center;">
             <i class="ti ti-circle-check" style="font-size:32px;color:#1D9E75;display:block;margin-bottom:8px;"></i>
             <div style="font-size:13px;color:var(--text-secondary);">Nenhum alerta ativo</div>
           </div>`}
-
-        <!-- Mini resumo fabricantes -->
         <div style="padding:12px 16px;border-top:1px solid var(--border);margin-top:auto;">
           <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Fabricantes monitorados</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            ${Object.entries(DB.inversores.reduce((acc,i)=>{
-              const m = i.modelo.split(' ')[0];
-              acc[m] = (acc[m]||0)+1;
-              return acc;
-            },{})).slice(0,6).map(([fab, count]) => `
-              <span style="background:var(--bg-secondary);padding:3px 8px;border-radius:10px;font-size:11px;color:var(--text-secondary);">${fab} (${count})</span>
-            `).join('')}
+            ${Object.entries(DB.inversores.reduce((acc,i)=>{ const m=i.modelo.split(' ')[0]; acc[m]=(acc[m]||0)+1; return acc; },{})).slice(0,6).map(([fab,count]) => `
+              <span style="background:var(--bg-secondary);padding:3px 8px;border-radius:10px;font-size:11px;color:var(--text-secondary);">${fab} (${count})</span>`).join('')}
           </div>
         </div>
       </div>
@@ -217,8 +185,7 @@ const Pages = {
             <i class="ti ti-send"></i> Relatório
           </button>
         </div>
-      </div>
-    `).join('');
+      </div>`).join('');
 
     return `
     <div id="lista-clientes">
@@ -347,7 +314,7 @@ const Pages = {
           <div class="card-meta">kWh / mês</div>
         </div>
         <div class="chart-wrap">
-          <canvas id="chart-perfil-hist" role="img" aria-label="Histórico de geração mensal"></canvas>
+          <canvas id="chart-perfil-hist"></canvas>
         </div>
       </div>
 
@@ -371,6 +338,198 @@ const Pages = {
     Charts.destroy('chart-perfil-hist');
   },
 
+  // ---- Modal Diagnóstico de Alerta ----
+  abrirDiagnostico(alertaId) {
+    const a = DB.alertas.find(x => x.id === alertaId);
+    if (!a) return;
+    const cliente = DB.clientes.find(c => a.titulo.startsWith(c.nome));
+
+    // Remove modal anterior se existir
+    const old = document.getElementById('modal-diagnostico');
+    if (old) old.remove();
+
+    const stIcon = a.tipo === 'err' ? '🔴' : '⚠️';
+    const stLabel = a.tipo === 'err' ? 'Alarme crítico' : 'Sistema offline';
+    const stColor = a.tipo === 'err' ? '#E24B4A' : '#EF9F27';
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-diagnostico';
+    modal.className = 'modal-overlay open';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:520px;">
+        <div class="modal-header" style="border-bottom:3px solid ${stColor};">
+          <h2 style="display:flex;align-items:center;gap:8px;font-size:16px;">
+            ${stIcon} Diagnóstico do Alerta
+          </h2>
+          <button class="btn-icon" onclick="document.getElementById('modal-diagnostico').remove()">
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+
+        <!-- Informações da planta -->
+        <div style="padding:16px 20px;background:var(--bg-secondary);border-bottom:1px solid var(--border);">
+          <div style="font-size:15px;font-weight:600;margin-bottom:4px;">${a.titulo.split(':')[0]}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">${a.detalhe}</div>
+        </div>
+
+        <div style="padding:16px 20px;">
+          <!-- Status -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div style="background:var(--bg-secondary);padding:12px;border-radius:8px;">
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">STATUS</div>
+              <div style="font-size:14px;font-weight:600;color:${stColor};">${stIcon} ${stLabel}</div>
+            </div>
+            <div style="background:var(--bg-secondary);padding:12px;border-radius:8px;">
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">ÚLTIMA COMUNICAÇÃO</div>
+              <div style="font-size:13px;font-weight:600;">${a.detalhe.split('· ').pop()}</div>
+            </div>
+          </div>
+
+          ${cliente ? `
+          <!-- Dados do cliente -->
+          <div style="margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;">
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Dados do cliente</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+              <div><span style="color:var(--text-secondary);">E-mail:</span> ${cliente.email || '—'}</div>
+              <div><span style="color:var(--text-secondary);">WhatsApp:</span> ${cliente.whats || '—'}</div>
+              <div><span style="color:var(--text-secondary);">Potência:</span> ${cliente.potencia} kWp</div>
+              <div><span style="color:var(--text-secondary);">Fabricante:</span> ${cliente.inversor}</div>
+            </div>
+          </div>` : ''}
+
+          <!-- Checklist diagnóstico -->
+          <div style="margin-bottom:16px;">
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Checklist de diagnóstico</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" style="width:14px;height:14px;"> Verificar conexão de rede do inversor
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" style="width:14px;height:14px;"> Checar disjuntores e fusíveis
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" style="width:14px;height:14px;"> Verificar display do inversor (erros/códigos)
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" style="width:14px;height:14px;"> Contatar cliente para confirmação no local
+              </label>
+            </div>
+          </div>
+
+          <!-- Ações -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            ${cliente?.whats ? `
+            <a href="https://wa.me/55${cliente.whats.replace(/\D/g,'')}" target="_blank" class="btn btn-sm" style="background:#25D366;color:white;border-color:#25D366;">
+              <i class="ti ti-brand-whatsapp"></i> WhatsApp
+            </a>` : ''}
+            ${cliente?.email ? `
+            <a href="mailto:${cliente.email}?subject=Alerta: ${encodeURIComponent(a.titulo.split(':')[0])}&body=Identificamos um problema na sua usina solar. Por favor, verifique." class="btn btn-sm">
+              <i class="ti ti-mail"></i> Enviar e-mail
+            </a>` : ''}
+            ${cliente ? `
+            <button class="btn btn-sm" onclick="document.getElementById('modal-diagnostico').remove(); Pages.openPerfil('${cliente.id}'); App.navTo('clientes');">
+              <i class="ti ti-user"></i> Ver perfil
+            </button>` : ''}
+            <button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;" onclick="App.resolverAlerta('${a.id}'); document.getElementById('modal-diagnostico').remove();">
+              <i class="ti ti-check"></i> Marcar resolvido
+            </button>
+          </div>
+        </div>
+      </div>`;
+
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+  },
+
+  // ---- Modal Perfil do Inversor ----
+  abrirPerfilInversor(invId) {
+    const inv = DB.inversores.find(i => i.id === invId);
+    if (!inv) return;
+    const cliente = DB.clientes.find(c => c.nome === inv.cliente);
+
+    const old = document.getElementById('modal-inversor');
+    if (old) old.remove();
+
+    const stColor = inv.status === 'ok' ? '#1D9E75' : inv.status === 'err' ? '#E24B4A' : '#EF9F27';
+    const stIcon  = inv.status === 'ok' ? '🟢' : inv.status === 'err' ? '🔴' : '⚠️';
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-inversor';
+    modal.className = 'modal-overlay open';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:520px;">
+        <div class="modal-header" style="border-bottom:3px solid ${stColor};">
+          <h2 style="display:flex;align-items:center;gap:8px;font-size:16px;">
+            <div style="background:${inv.bgCol};color:${inv.txtCol};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${inv.sigla}</div>
+            ${inv.modelo}
+          </h2>
+          <button class="btn-icon" onclick="document.getElementById('modal-inversor').remove()">
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+
+        <div style="padding:16px 20px;">
+          <!-- Status + métricas -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div style="background:var(--bg-secondary);padding:12px;border-radius:8px;text-align:center;">
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">STATUS</div>
+              <div style="font-size:14px;font-weight:700;color:${stColor};">${stIcon} ${inv.statusLabel}</div>
+            </div>
+            <div style="background:var(--bg-secondary);padding:12px;border-radius:8px;text-align:center;">
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">GERAÇÃO HOJE</div>
+              <div style="font-size:16px;font-weight:700;color:${inv.status === 'ok' ? '#1D9E75' : '#E24B4A'};">${inv.geracaoHoje} kWh</div>
+            </div>
+            <div style="background:var(--bg-secondary);padding:12px;border-radius:8px;text-align:center;">
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">TEMPERATURA</div>
+              <div style="font-size:16px;font-weight:700;">${inv.temp ? inv.temp + '°C' : '—'}</div>
+            </div>
+          </div>
+
+          <!-- Detalhes técnicos -->
+          <div style="margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;">
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Detalhes técnicos</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+              <div><span style="color:var(--text-secondary);">Fabricante:</span> <strong>${inv.modelo.split(' ')[0]}</strong></div>
+              <div><span style="color:var(--text-secondary);">Número de série:</span> <strong>${inv.serial}</strong></div>
+              <div><span style="color:var(--text-secondary);">API:</span> <strong>${inv.api}</strong></div>
+              <div><span style="color:var(--text-secondary);">Cliente:</span> <strong>${inv.cliente}</strong></div>
+            </div>
+          </div>
+
+          <!-- Cliente vinculado -->
+          ${cliente ? `
+          <div style="margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;">
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Cliente vinculado</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="avatar" style="background:${cliente.avBg};color:${cliente.avCor};">${cliente.iniciais}</div>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:600;">${cliente.nome}</div>
+                <div style="font-size:12px;color:var(--text-secondary);">${cliente.email || '—'} · ${cliente.whats || 'Sem WhatsApp'}</div>
+              </div>
+            </div>
+          </div>` : ''}
+
+          <!-- Ações -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            ${cliente?.whats ? `
+            <a href="https://wa.me/55${cliente.whats.replace(/\D/g,'')}" target="_blank" class="btn btn-sm" style="background:#25D366;color:white;border-color:#25D366;">
+              <i class="ti ti-brand-whatsapp"></i> WhatsApp
+            </a>` : ''}
+            ${cliente ? `
+            <button class="btn btn-sm btn-teal" onclick="document.getElementById('modal-inversor').remove(); App.navTo('clientes'); setTimeout(()=>Pages.openPerfil('${cliente.id}'),100);">
+              <i class="ti ti-user"></i> Ver perfil do cliente
+            </button>` : ''}
+            <button class="btn btn-sm" onclick="document.getElementById('modal-inversor').remove();">
+              <i class="ti ti-x"></i> Fechar
+            </button>
+          </div>
+        </div>
+      </div>`;
+
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+  },
+
   // ---- Inversores ----
   inversores() {
     const online  = DB.inversores.filter(i => i.status === 'ok').length;
@@ -379,14 +538,14 @@ const Pages = {
     const fabLabel = fabricantes.slice(0, 4).join(' · ');
 
     const cards = DB.inversores.map(i => `
-      <div class="inv-card">
+      <div class="inv-card" style="cursor:pointer;" onclick="Pages.abrirPerfilInversor('${i.id}')">
         <div class="inv-logo" style="background:${i.bgCol};color:${i.txtCol};">${i.sigla}</div>
         <div class="inv-info">
           <div class="inv-name">
             ${i.modelo}
             ${this.badgeStatus(i.status, i.statusLabel)}
           </div>
-          <div class="inv-meta">${i.cliente} · S/N: ${i.serial} · ${i.api}</div>
+          <div class="inv-meta">${i.cliente} · S/N: ${i.serial}</div>
         </div>
         <div class="inv-stats">
           <div class="inv-stat">
@@ -422,7 +581,7 @@ const Pages = {
     <div class="card">
       <div class="card-hdr">
         <div class="card-title">Inversores monitorados</div>
-        <div class="card-meta">Atualizado agora</div>
+        <div class="card-meta">Clique para ver detalhes · Atualizado agora</div>
       </div>
       ${cards}
     </div>
@@ -457,92 +616,7 @@ const Pages = {
     <div class="card">
       <div class="card-hdr"><div class="card-title">Geração hoje por inversor online</div></div>
       <div class="chart-wrap chart-wrap-tall">
-        <canvas id="chart-inv-geracao" role="img" aria-label="Geração por inversor"></canvas>
-      </div>
-    </div>`;
-  },
-
-  // ---- Relatórios ----
-  relatorios() {
-    const totalClientes = DB.clientes.length;
-    const comWhats = DB.clientes.filter(c => c.whats).length;
-    const semWhats = totalClientes - comWhats;
-
-    const logs = DB.relatorios.map(r => `
-      <div class="trow" style="grid-template-columns:2fr 1fr 1fr 1fr;">
-        <div class="font-bold">${r.nome}</div>
-        <div>${r.clientes} clientes</div>
-        <div>${this.badgeStatus(r.status, 'Enviado')}</div>
-        <div>
-          <button class="btn btn-sm" onclick="App.previewRelatorio('${r.id}')">
-            <i class="ti ti-eye"></i> Ver
-          </button>
-        </div>
-      </div>`).join('');
-
-    return `
-    <div class="grid-3">
-      <div class="mcard" style="border-left:3px solid #1D9E75;">
-        <div class="mcard-label"><i class="ti ti-mail"></i>Clientes com e-mail</div>
-        <div class="mcard-val">${totalClientes}</div>
-        <div class="mcard-sub ok">Prontos para envio</div>
-      </div>
-      <div class="mcard" style="border-left:3px solid ${semWhats > 0 ? '#EF9F27' : '#1D9E75'};">
-        <div class="mcard-label"><i class="ti ti-brand-whatsapp"></i>Com WhatsApp</div>
-        <div class="mcard-val">${comWhats}</div>
-        <div class="mcard-sub ${semWhats > 0 ? 'warn' : 'ok'}">${semWhats > 0 ? semWhats + ' sem número' : 'Todos cadastrados'}</div>
-      </div>
-      <div class="mcard" style="border-left:3px solid #3B82F6;">
-        <div class="mcard-label"><i class="ti ti-file-type-pdf"></i>Total de plantas</div>
-        <div class="mcard-val">${totalClientes}</div>
-        <div class="mcard-sub ok">100% monitoradas</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-hdr"><div class="card-title">Template do relatório</div><div class="card-meta">Personalização</div></div>
-      <div class="report-tpl">
-        <div class="report-tpl-hdr">
-          <div class="report-tpl-icon"><i class="ti ti-file-description"></i></div>
-          <div style="flex:1;">
-            <div style="font-size:13px;font-weight:600;">Relatório mensal padrão</div>
-            <div style="font-size:11px;color:var(--text-secondary);">PDF + E-mail HTML + Mensagem WhatsApp</div>
-          </div>
-          <span class="badge b-ok">Ativo</span>
-        </div>
-        <div class="channels">
-          <div class="ch-pill on" onclick="this.classList.toggle('on')"><i class="ti ti-mail"></i>E-mail</div>
-          <div class="ch-pill on" onclick="this.classList.toggle('on')"><i class="ti ti-brand-whatsapp"></i>WhatsApp</div>
-          <div class="ch-pill on" onclick="this.classList.toggle('on')"><i class="ti ti-file-type-pdf"></i>PDF</div>
-          <div class="ch-pill" onclick="this.classList.toggle('on')"><i class="ti ti-device-mobile"></i>Push app</div>
-        </div>
-        <div class="preview-box">
-          <strong>Assunto:</strong> Seu relatório solar de maio 2026 — {nome_cliente}<br><br>
-          Olá, <strong>{nome_cliente}</strong>!<br>
-          Em maio, sua usina solar gerou <strong>{kwh_mes} kWh</strong>, representando uma economia de
-          <strong>R$ {economia}</strong> na sua conta de energia.<br><br>
-          <strong>Desempenho:</strong> {percentual_meta}% da meta mensal &nbsp;·&nbsp;
-          <strong>Irradiação:</strong> {irradiacao} kWh/m²<br>
-          <strong>Status do sistema:</strong> {status_sistema}<br><br>
-          <span class="preview-highlight">Ver relatório completo em PDF ↓</span>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="btn" onclick="App.customizarTemplate()"><i class="ti ti-brush"></i> Personalizar</button>
-          <button class="btn btn-teal" onclick="App.previewRelatorio('preview')"><i class="ti ti-eye"></i> Pré-visualizar</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-hdr"><div class="card-title">Histórico de envios</div></div>
-      <div class="thdr" style="grid-template-columns:2fr 1fr 1fr 1fr;">
-        <div>Relatório</div><div>Clientes</div><div>Status</div><div>Ação</div>
-      </div>
-      ${logs || '<div class="text-muted" style="padding:12px;font-size:12px;">Nenhum relatório enviado ainda.</div>'}
-      <div style="padding:12px 0 0;">
-        <button class="btn btn-teal" style="width:100%;justify-content:center;" onclick="App.enviarTodosRelatorios()">
-          <i class="ti ti-send"></i> Gerar e enviar relatório de Maio 2026
-        </button>
+        <canvas id="chart-inv-geracao"></canvas>
       </div>
     </div>`;
   },
@@ -553,17 +627,17 @@ const Pages = {
     const atencao  = DB.alertas.filter(a => a.tipo === 'warn').length;
 
     const items = DB.alertas.map(a => `
-      <div class="alert-item a-${a.tipo}" id="alerta-${a.id}">
+      <div class="alert-item a-${a.tipo}" id="alerta-${a.id}" style="cursor:pointer;" onclick="Pages.abrirDiagnostico('${a.id}')">
         <i class="ti ${a.icon}"></i>
         <div style="flex:1;">
           <div class="atxt"><strong>${a.titulo}</strong></div>
           <div class="atime">${a.detalhe}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button class="btn btn-sm" onclick="App.diagnosticarAlerta('${a.id}')">
-            ${a.acao} <i class="ti ti-arrow-right"></i>
+          <button class="btn btn-sm" onclick="event.stopPropagation(); Pages.abrirDiagnostico('${a.id}')">
+            Diagnosticar <i class="ti ti-arrow-right"></i>
           </button>
-          <button class="btn btn-sm" onclick="App.resolverAlerta('${a.id}')" title="Marcar como resolvido">
+          <button class="btn btn-sm" onclick="event.stopPropagation(); App.resolverAlerta('${a.id}')" title="Marcar como resolvido">
             <i class="ti ti-check"></i>
           </button>
         </div>
@@ -588,9 +662,88 @@ const Pages = {
       </div>
     </div>
     <div class="card">
-      <div class="card-hdr"><div class="card-title">Alertas ativos</div></div>
+      <div class="card-hdr">
+        <div class="card-title">Alertas ativos</div>
+        <div class="card-meta">Clique para diagnosticar</div>
+      </div>
       <div id="alertas-list">${items}</div>
       ${DB.alertas.length === 0 ? '<div class="text-center text-muted" style="padding:20px 0;">Nenhum alerta ativo.</div>' : ''}
+    </div>`;
+  },
+
+  // ---- Relatórios ----
+  relatorios() {
+    const totalClientes = DB.clientes.length;
+    const comWhats = DB.clientes.filter(c => c.whats).length;
+    const semWhats = totalClientes - comWhats;
+    const logs = DB.relatorios.map(r => `
+      <div class="trow" style="grid-template-columns:2fr 1fr 1fr 1fr;">
+        <div class="font-bold">${r.nome}</div>
+        <div>${r.clientes} clientes</div>
+        <div>${this.badgeStatus(r.status, 'Enviado')}</div>
+        <div><button class="btn btn-sm" onclick="App.previewRelatorio('${r.id}')"><i class="ti ti-eye"></i> Ver</button></div>
+      </div>`).join('');
+
+    return `
+    <div class="grid-3">
+      <div class="mcard" style="border-left:3px solid #1D9E75;">
+        <div class="mcard-label"><i class="ti ti-mail"></i>Clientes com e-mail</div>
+        <div class="mcard-val">${totalClientes}</div>
+        <div class="mcard-sub ok">Prontos para envio</div>
+      </div>
+      <div class="mcard" style="border-left:3px solid ${semWhats > 0 ? '#EF9F27' : '#1D9E75'};">
+        <div class="mcard-label"><i class="ti ti-brand-whatsapp"></i>Com WhatsApp</div>
+        <div class="mcard-val">${comWhats}</div>
+        <div class="mcard-sub ${semWhats > 0 ? 'warn' : 'ok'}">${semWhats > 0 ? semWhats + ' sem número' : 'Todos cadastrados'}</div>
+      </div>
+      <div class="mcard" style="border-left:3px solid #3B82F6;">
+        <div class="mcard-label"><i class="ti ti-file-type-pdf"></i>Total de plantas</div>
+        <div class="mcard-val">${totalClientes}</div>
+        <div class="mcard-sub ok">100% monitoradas</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">Template do relatório</div><div class="card-meta">Personalização</div></div>
+      <div class="report-tpl">
+        <div class="report-tpl-hdr">
+          <div class="report-tpl-icon"><i class="ti ti-file-description"></i></div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">Relatório mensal padrão</div>
+            <div style="font-size:11px;color:var(--text-secondary);">PDF + E-mail HTML + Mensagem WhatsApp</div>
+          </div>
+          <span class="badge b-ok">Ativo</span>
+        </div>
+        <div class="channels">
+          <div class="ch-pill on" onclick="this.classList.toggle('on')"><i class="ti ti-mail"></i>E-mail</div>
+          <div class="ch-pill on" onclick="this.classList.toggle('on')"><i class="ti ti-brand-whatsapp"></i>WhatsApp</div>
+          <div class="ch-pill on" onclick="this.classList.toggle('on')"><i class="ti ti-file-type-pdf"></i>PDF</div>
+          <div class="ch-pill" onclick="this.classList.toggle('on')"><i class="ti ti-device-mobile"></i>Push app</div>
+        </div>
+        <div class="preview-box">
+          <strong>Assunto:</strong> Seu relatório solar de maio 2026 — {nome_cliente}<br><br>
+          Olá, <strong>{nome_cliente}</strong>!<br>
+          Em maio, sua usina solar gerou <strong>{kwh_mes} kWh</strong>, representando uma economia de <strong>R$ {economia}</strong> na sua conta de energia.<br><br>
+          <strong>Desempenho:</strong> {percentual_meta}% da meta mensal &nbsp;·&nbsp; <strong>Irradiação:</strong> {irradiacao} kWh/m²<br>
+          <strong>Status do sistema:</strong> {status_sistema}<br><br>
+          <span class="preview-highlight">Ver relatório completo em PDF ↓</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn" onclick="App.customizarTemplate()"><i class="ti ti-brush"></i> Personalizar</button>
+          <button class="btn btn-teal" onclick="App.previewRelatorio('preview')"><i class="ti ti-eye"></i> Pré-visualizar</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">Histórico de envios</div></div>
+      <div class="thdr" style="grid-template-columns:2fr 1fr 1fr 1fr;">
+        <div>Relatório</div><div>Clientes</div><div>Status</div><div>Ação</div>
+      </div>
+      ${logs || '<div class="text-muted" style="padding:12px;font-size:12px;">Nenhum relatório enviado ainda.</div>'}
+      <div style="padding:12px 0 0;">
+        <button class="btn btn-teal" style="width:100%;justify-content:center;" onclick="App.enviarTodosRelatorios()">
+          <i class="ti ti-send"></i> Gerar e enviar relatório de Maio 2026
+        </button>
+      </div>
     </div>`;
   },
 
@@ -625,7 +778,6 @@ const Pages = {
           <input type="text" value="Infortel Solar — SolarCRM" />
         </div>
       </div>
-
       <div class="card">
         <div class="card-hdr"><div class="card-title">Integrações de inversores</div></div>
         <div class="config-row">
@@ -649,7 +801,6 @@ const Pages = {
         </button>
       </div>
     </div>
-
     <div class="card">
       <div class="card-hdr"><div class="card-title">Alertas automáticos</div></div>
       <div class="config-row">
