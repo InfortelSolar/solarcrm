@@ -1,62 +1,49 @@
-import crypto from 'crypto';
-
-const KEY_ID     = process.env.SOLIS_KEY_ID;
-const KEY_SECRET = process.env.SOLIS_KEY_SECRET;
-const BASE_URL   = 'https://www.soliscloud.com:13333';
-
-function solisAuth(path, body) {
-  const contentMd5   = crypto.createHash('md5').update(body).digest('base64');
-  const contentType  = 'application/json';
-  const date         = new Date().toUTCString();
-  const stringToSign = `POST\n${contentMd5}\n${contentType}\n${date}\n${path}`;
-  const hmac         = crypto.createHmac('sha1', KEY_SECRET);
-  hmac.update(stringToSign);
-  const signature    = hmac.digest('base64');
-  return {
-    'Content-Type':  contentType,
-    'Content-MD5':   contentMd5,
-    'Date':          date,
-    'Authorization': `API ${KEY_ID}:${signature}`,
-  };
-}
-
-async function fetchSolis(path, bodyObj) {
-  const body    = JSON.stringify(bodyObj);
-  const headers = solisAuth(path, body);
-  const res     = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers, body });
-  if (!res.ok) throw new Error(`Solis ${res.status}: ${await res.text()}`);
-  return res.json();
-}
-
-function mapStatus(code) {
-  if (code === 1) return 'OK';
-  if (code === 2) return 'ALARMING';
-  return 'OFFLINE';
-}
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+
   try {
-    const action = req.query.action || 'stations';
+    const keyId     = process.env.SOLIS_KEY_ID;
+    const keySecret = process.env.SOLIS_KEY_SECRET;
+    const path      = '/v1/api/stationList';
+    const body      = JSON.stringify({ pageNo: 1, pageSize: 1000 });
 
-    if (action === 'stations') {
-      const data    = await fetchSolis('/v1/api/stationList', { pageNo: 1, pageSize: 1000 });
-      const records = data?.data?.page?.records || [];
-      const plants  = records.map(s => ({
-        id:          String(s.id),
-        name:        s.stationName,
-        power:       s.capacity,
-        powerNow:    s.power    || 0,
-        energyDay:   s.dayEnergy   || 0,
-        energyMonth: s.monthEnergy || 0,
-        status:      mapStatus(s.stationStatus),
-        manufacturer:'Solis',
-        updated_at:  new Date().toISOString(),
-      }));
-      return res.json({ ok: true, data: plants });
-    }
+    // Gera assinatura HMAC-SHA1
+    const { createHash, createHmac } = await import('node:crypto');
+    const contentMd5   = createHash('md5').update(body).digest('base64');
+    const contentType  = 'application/json';
+    const date         = new Date().toUTCString();
+    const stringToSign = `POST\n${contentMd5}\n${contentType}\n${date}\n${path}`;
+    const hmac         = createHmac('sha1', keySecret);
+    hmac.update(stringToSign);
+    const signature = hmac.digest('base64');
 
-    res.status(400).json({ ok: false, error: 'Ação inválida' });
+    const response = await fetch(`https://www.soliscloud.com:13333${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  contentType,
+        'Content-MD5':   contentMd5,
+        'Date':          date,
+        'Authorization': `API ${keyId}:${signature}`,
+      },
+      body,
+    });
+
+    const data = await response.json();
+    const records = data?.data?.page?.records || [];
+
+    const plants = records.map(s => ({
+      id:          String(s.id),
+      name:        s.stationName,
+      power:       s.capacity,
+      powerNow:    s.power        || 0,
+      energyDay:   s.dayEnergy    || 0,
+      energyMonth: s.monthEnergy  || 0,
+      status:      s.stationStatus === 1 ? 'OK' : s.stationStatus === 2 ? 'ALARMING' : 'OFFLINE',
+      manufacturer:'Solis',
+      updated_at:  new Date().toISOString(),
+    }));
+
+    res.json({ ok: true, total: plants.length, data: plants });
 
   } catch (err) {
     console.error('[Solis]', err.message);
