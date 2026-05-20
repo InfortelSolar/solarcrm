@@ -41,7 +41,8 @@ export default async function handler(req, res) {
       });
 
       const data    = await response.json();
-      const records = data?.data?.page?.records || [];
+     console.log('[Solis Raw]', JSON.stringify(data).slice(0, 500));
+const records = data?.data?.page?.records || data?.data?.records || data?.page?.records || [];
       const plants  = records.map(s => ({
         id:          String(s.id),
         name:        s.stationName,
