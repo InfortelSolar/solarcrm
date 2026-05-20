@@ -18,38 +18,56 @@ export default async function handler(req, res) {
       const keyId     = process.env.SOLIS_KEY_ID;
       const keySecret = process.env.SOLIS_KEY_SECRET;
       const path      = '/v1/api/userStationList';
-      const body      = JSON.stringify({ pageNo: 1, pageSize: 1000 });
 
       const { createHash, createHmac } = await import('node:crypto');
-      const contentMd5   = createHash('md5').update(body).digest('base64');
-      const contentType  = 'application/json';
-      const date         = new Date().toUTCString();
-      const stringToSign = `POST\n${contentMd5}\n${contentType}\n${date}\n${path}`;
-      const hmac         = createHmac('sha1', keySecret);
-      hmac.update(stringToSign);
-      const signature = hmac.digest('base64');
 
-      const response = await fetch(`https://www.soliscloud.com:13333${path}`, {
-        method: 'POST',
-        headers: {
+      function makeHeaders(bodyStr) {
+        const contentMd5   = createHash('md5').update(bodyStr).digest('base64');
+        const contentType  = 'application/json';
+        const date         = new Date().toUTCString();
+        const stringToSign = `POST\n${contentMd5}\n${contentType}\n${date}\n${path}`;
+        const hmac         = createHmac('sha1', keySecret);
+        hmac.update(stringToSign);
+        const signature = hmac.digest('base64');
+        return {
           'Content-Type':  contentType,
           'Content-MD5':   contentMd5,
           'Date':          date,
           'Authorization': `API ${keyId}:${signature}`,
-        },
-        body,
-      });
+        };
+      }
 
-      const data    = await response.json();
-     console.log('[Solis Raw]', JSON.stringify(data).slice(0, 500));
-const records = data?.data?.page?.records || data?.data?.records || data?.page?.records || [];
-      const plants  = records.map(s => ({
+      // Busca primeira página para saber o total
+      const body1   = JSON.stringify({ pageNo: 1, pageSize: 100 });
+      const resp1   = await fetch(`https://www.soliscloud.com:13333${path}`, {
+        method: 'POST', headers: makeHeaders(body1), body: body1,
+      });
+      const data1   = await resp1.json();
+      const total   = data1?.data?.page?.total || 0;
+      let records   = data1?.data?.page?.records || [];
+
+      // Se tiver mais páginas, busca o restante
+      if (total > 100) {
+        const totalPages = Math.ceil(total / 100);
+        for (let page = 2; page <= totalPages; page++) {
+          const bodyN  = JSON.stringify({ pageNo: page, pageSize: 100 });
+          const respN  = await fetch(`https://www.soliscloud.com:13333${path}`, {
+            method: 'POST', headers: makeHeaders(bodyN), body: bodyN,
+          });
+          const dataN  = await respN.json();
+          const recs   = dataN?.data?.page?.records || [];
+          records      = records.concat(recs);
+        }
+      }
+
+      const plants = records.map(s => ({
         id:          String(s.id),
         name:        s.stationName,
-        power:       s.capacity,
-        powerNow:    s.power       || 0,
-        energyDay:   s.dayEnergy   || 0,
-        energyMonth: s.monthEnergy || 0,
+        power:       s.capacity        || 0,
+        powerNow:    s.power           || 0,
+        energyDay:   s.dayEnergy       || 0,
+        energyMonth: s.monthEnergy     || 0,
+        energyTotal: s.allEnergy       || 0,
         status:      s.stationStatus === 1 ? 'OK' : s.stationStatus === 2 ? 'ALARMING' : 'OFFLINE',
         manufacturer:'Solis',
         updated_at:  new Date().toISOString(),
@@ -58,6 +76,7 @@ const records = data?.data?.page?.records || data?.data?.records || data?.page?.
       return res.json({ ok: true, total: plants.length, data: plants });
 
     } catch (err) {
+      console.error('[Solis]', err.message);
       return res.status(500).json({ ok: false, error: err.message });
     }
   }
