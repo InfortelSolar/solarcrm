@@ -1,11 +1,10 @@
 // ============================================================
 //  SolarCRM — Proxy Growatt API (Vercel Serverless)
-//  Endpoints testados: server.growatt.com e openapi.growatt.com
+//  v2 — Testa múltiplas estratégias de autenticação
 // ============================================================
 
 const crypto = require('crypto');
 
-// Tenta os dois endpoints conhecidos da Growatt
 const ENDPOINTS = [
   'https://server.growatt.com',
   'https://openapi.growatt.com',
@@ -15,98 +14,123 @@ function md5(str) {
   return crypto.createHash('md5').update(str).digest('hex');
 }
 
-// Faz login e retorna cookie de sessão
-async function login(baseUrl, user, pass) {
-  const url  = `${baseUrl}/login`;
-  const body = new URLSearchParams({
-    account:       user,
-    password:      md5(pass),
-    validateCode:  '',
-    isReadPact:    '0',
-  });
+// Tenta login com diferentes combinações de senha
+async function tryLogin(baseUrl, user, pass) {
+  const strategies = [
+    { label: 'MD5',       password: md5(pass) },
+    { label: 'plaintext', password: pass },
+    { label: 'MD5-upper', password: md5(pass).toUpperCase() },
+  ];
 
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    body.toString(),
-    redirect: 'manual',
-  });
+  for (const s of strategies) {
+    try {
+      const body = new URLSearchParams({
+        account:      user,
+        password:     s.password,
+        validateCode: '',
+        isReadPact:   '0',
+      });
 
-  const text = await res.text();
-  let json;
-  try { json = JSON.parse(text); } catch(e) {
-    throw new Error(`Login: resposta inválida — ${text.slice(0, 200)}`);
+      const res = await fetch(`${baseUrl}/login`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    body.toString(),
+        redirect: 'manual',
+      });
+
+      const text = await res.text();
+      let json;
+      try { json = JSON.parse(text); } catch(e) {
+        console.warn(`[${s.label}] Resposta não-JSON: ${text.slice(0,100)}`);
+        continue;
+      }
+
+      console.log(`[${baseUrl}][${s.label}] resultado:`, JSON.stringify(json).slice(0,150));
+
+      if (json.result === 1 || json.success === true || json.error === 0) {
+        // Login OK — extrai cookie
+        const setCookie = res.headers.get('set-cookie') || '';
+        const match = setCookie.match(/JSESSIONID=[^;]+/);
+        if (match) return { cookie: match[0], strategy: s.label };
+
+        // Alguns endpoints retornam token no body
+        if (json.back?.token || json.data?.token) {
+          return { token: json.back?.token || json.data?.token, strategy: s.label };
+        }
+      }
+    } catch(e) {
+      console.warn(`[${s.label}] Erro: ${e.message}`);
+    }
   }
 
-  if (json.result !== 1 && json.success !== true) {
-    throw new Error(`Login falhou: ${JSON.stringify(json)}`);
-  }
-
-  // Extrai cookie de sessão
-  const setCookie = res.headers.get('set-cookie') || '';
-  const match     = setCookie.match(/JSESSIONID=[^;]+/);
-  if (!match) throw new Error('Login OK mas sem cookie de sessão');
-
-  return match[0];
+  return null;
 }
 
-// Busca lista de plantas
-async function getPlants(baseUrl, cookie) {
-  const url = `${baseUrl}/index/getPlantListTitle`;
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Cookie':        cookie,
-    },
-    body: new URLSearchParams({ currPage: '1' }).toString(),
-  });
+// Busca plantas com cookie ou token
+async function getPlants(baseUrl, auth) {
+  const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+  if (auth.cookie) headers['Cookie'] = auth.cookie;
+  if (auth.token)  headers['token']  = auth.token;
 
-  const text = await res.text();
-  let json;
-  try { json = JSON.parse(text); } catch(e) {
-    throw new Error(`getPlants: resposta inválida — ${text.slice(0, 200)}`);
+  // Tenta diferentes endpoints de lista de plantas
+  const plantEndpoints = [
+    '/index/getPlantListTitle',
+    '/PlantListAPI.do',
+    '/newTwoPlant/getPlantList',
+  ];
+
+  for (const ep of plantEndpoints) {
+    try {
+      const res = await fetch(`${baseUrl}${ep}`, {
+        method:  'POST',
+        headers,
+        body: new URLSearchParams({ currPage: '1', plantType: '-1' }).toString(),
+      });
+
+      const text = await res.text();
+      let json;
+      try { json = JSON.parse(text); } catch(e) { continue; }
+
+      const plants =
+        json.data?.datas      ||
+        json.data?.plantList  ||
+        json.back?.data       ||
+        json.result?.data     ||
+        json.obj?.datas       ||
+        [];
+
+      if (plants.length > 0) {
+        console.log(`[getPlants] OK via ${ep}: ${plants.length} plantas`);
+        return plants;
+      }
+    } catch(e) {
+      console.warn(`[getPlants] ${ep} falhou: ${e.message}`);
+    }
   }
 
-  // Tenta diferentes estruturas de resposta
-  const plants =
-    json.data?.datas ||
-    json.data?.plantList ||
-    json.result?.data ||
-    json.back?.data ||
-    [];
-
-  return plants;
+  return [];
 }
 
-// Normaliza planta Growatt para o formato padrão SolarCRM
 function normalizePlant(p) {
-  // Status: 1=Online, 2=Offline, 3=Alarme, 0=Sem comunicação
   const statusMap = { '1': 'OK', '0': 'NO_COMMUNICATION', '2': 'OFFLINE', '3': 'ALARMING' };
   const status    = statusMap[String(p.status)] || 'OFFLINE';
-
-  const power      = parseFloat(p.nominalPower || p.peakPower || p.capacity || 0);
-  const energyDay  = parseFloat(p.todayEnergy  || p.eDay   || 0);
-  const energyMonth= parseFloat(p.monthEnergy  || p.eMonth || 0);
+  const power     = parseFloat(p.nominalPower || p.peakPower || p.capacity || 0);
 
   return {
-    id:           String(p.id || p.plantId || p.plant_id),
+    id:           String(p.id || p.plantId || p.plant_id || Math.random()),
     name:         p.plantName || p.name || 'Planta Growatt',
     status,
     manufacturer: 'Growatt',
     power:        power.toFixed(2),
-    energyDay:    energyDay.toFixed(2),
-    energyMonth:  energyMonth.toFixed(2),
+    energyDay:    parseFloat(p.todayEnergy  || p.eDay   || 0).toFixed(2),
+    energyMonth:  parseFloat(p.monthEnergy  || p.eMonth || 0).toFixed(2),
     updated_at:   p.lastUpdateTime || new Date().toISOString(),
     created_at:   p.createTime     || new Date().toISOString(),
     alert:        status !== 'OK',
-    raw:          p, // mantém dados originais para debug
   };
 }
 
-// Handler principal Vercel
 module.exports = async (req, res) => {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -117,44 +141,46 @@ module.exports = async (req, res) => {
 
   if (!user || !pass) {
     return res.status(500).json({
-      ok:    false,
-      error: 'Credenciais Growatt não configuradas (GROWATT_USER / GROWATT_PASS)',
+      ok: false,
+      error: 'Credenciais não configuradas (GROWATT_USER / GROWATT_PASS)',
     });
   }
 
-  let lastError = '';
+  const errors = [];
 
-  // Tenta cada endpoint até um funcionar
   for (const baseUrl of ENDPOINTS) {
     try {
       console.log(`[Growatt] Tentando ${baseUrl}...`);
 
-      const cookie = await login(baseUrl, user, pass);
-      console.log(`[Growatt] Login OK em ${baseUrl}`);
+      const auth = await tryLogin(baseUrl, user, pass);
+      if (!auth) {
+        errors.push(`${baseUrl}: nenhuma estratégia de login funcionou`);
+        continue;
+      }
 
-      const plants = await getPlants(baseUrl, cookie);
-      console.log(`[Growatt] ${plants.length} plantas encontradas`);
+      console.log(`[Growatt] Login OK (${auth.strategy}) em ${baseUrl}`);
 
-      const data = plants.map(normalizePlant);
+      const plants = await getPlants(baseUrl, auth);
+      const data   = plants.map(normalizePlant);
 
       return res.status(200).json({
         ok:       true,
         source:   'growatt',
         endpoint: baseUrl,
+        strategy: auth.strategy,
         total:    data.length,
         data,
       });
 
-    } catch (err) {
-      lastError = err.message;
+    } catch(err) {
+      errors.push(`${baseUrl}: ${err.message}`);
       console.warn(`[Growatt] Falhou em ${baseUrl}: ${err.message}`);
-      // Tenta próximo endpoint
     }
   }
 
-  // Todos os endpoints falharam
   return res.status(500).json({
-    ok:    false,
-    error: `Todos os endpoints falharam. Último erro: ${lastError}`,
+    ok:     false,
+    error:  'Todos os endpoints falharam',
+    errors,
   });
 };
