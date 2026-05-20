@@ -1,9 +1,10 @@
 // ============================================================
-//  SolarCRM — Proxy Growatt ShineServer API (Vercel Serverless)
-//  v3 — Debug mode para identificar resposta correta
+//  SolarCRM — Proxy Growatt / PvButler API (Vercel Serverless)
+//  v4 — Inclui server.pvbutler.com conforme painel OSS
 // ============================================================
 
 const ENDPOINTS = [
+  'https://server.pvbutler.com',   // ← servidor correto do painel
   'https://server.growatt.com',
   'https://openapi.growatt.com',
   'https://oss.growatt.com',
@@ -29,7 +30,7 @@ function normalizePlant(p) {
     status,
     manufacturer:'Growatt',
     power:       power.toFixed(2),
-    energyDay:   parseFloat(p.todayEnergy || p.eDay  || p.pac   || 0).toFixed(2),
+    energyDay:   parseFloat(p.todayEnergy || p.eDay   || p.pac   || 0).toFixed(2),
     energyMonth: parseFloat(p.monthEnergy || p.eMonth || 0).toFixed(2),
     energyTotal: parseFloat(p.totalEnergy || p.eTotal || 0).toFixed(2),
     updated_at:  p.lastUpdateTime || p.updateTime || new Date().toISOString(),
@@ -46,14 +47,12 @@ module.exports = async (req, res) => {
 
   const token    = process.env.GROWATT_TOKEN;
   const username = process.env.GROWATT_USER;
+  const debug    = req.query.debug === '1';
+  const debugLog = [];
 
   if (!token) {
     return res.status(500).json({ ok: false, error: 'GROWATT_TOKEN não configurado' });
   }
-
-  // Modo debug: mostra todas as respostas brutas
-  const debug = req.query.debug === '1';
-  const debugLog = [];
 
   for (const baseUrl of ENDPOINTS) {
     for (const path of PLANT_PATHS) {
@@ -80,13 +79,12 @@ module.exports = async (req, res) => {
 
         let json;
         try { json = JSON.parse(text); } catch(e) {
-          debugLog.push({ url, status: r.status, response: snippet, error: 'não-JSON' });
+          if (debug) debugLog.push({ url, httpStatus: r.status, response: snippet, error: 'não-JSON' });
           continue;
         }
 
-        debugLog.push({ url, status: r.status, response: snippet });
+        if (debug) debugLog.push({ url, httpStatus: r.status, response: snippet });
 
-        // Extrai plantas de qualquer estrutura conhecida
         const plants =
           json.data?.datas      ||
           json.data?.plantList  ||
@@ -109,17 +107,26 @@ module.exports = async (req, res) => {
           });
         }
 
+        // Resposta válida mas sem plantas
+        if (json.result === 1 || json.success === true) {
+          if (debug) debugLog.push({ url, note: 'Login OK mas sem plantas' });
+          return res.status(200).json({
+            ok: true, source: 'growatt',
+            endpoint: url, total: 0, data: [],
+            ...(debug ? { debugLog } : {}),
+          });
+        }
+
       } catch(e) {
-        debugLog.push({ url: `${baseUrl}${path}`, error: e.message });
+        if (debug) debugLog.push({ url: `${baseUrl}${path}`, error: e.message });
       }
     }
   }
 
-  // Nenhum endpoint funcionou — retorna debug completo
   return res.status(500).json({
     ok: false,
     error: 'Nenhum endpoint retornou plantas',
-    debugLog,
-    hint: 'Acesse /api/growatt?debug=1 para ver detalhes completos',
+    hint: 'Verifique se o token está vinculado às plantas no painel OSS',
+    ...(debug ? { debugLog } : { tip: 'Use ?debug=1 para ver detalhes' }),
   });
 };
