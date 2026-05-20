@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     try {
       const keyId     = process.env.SOLIS_KEY_ID;
       const keySecret = process.env.SOLIS_KEY_SECRET;
-      const path      = '/v1/api/stationList';
+      const path      = '/v1/api/userStationList';
       const body      = JSON.stringify({ pageNo: 1, pageSize: 1000 });
 
       const { createHash, createHmac } = await import('node:crypto');
