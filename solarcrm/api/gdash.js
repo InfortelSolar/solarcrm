@@ -38,8 +38,8 @@ export default async function handler(req, res) {
       }
 
       // Busca primeira página para saber o total
-      const body1   = JSON.stringify({ pageNo: 1, pageSize: 100 });
-      const resp1   = await fetch(`https://www.soliscloud.com:13333${path}`, {
+      const body1 = JSON.stringify({ pageNo: 1, pageSize: 100 });
+      const resp1 = await fetch(`https://www.soliscloud.com:13333${path}`, {
         method: 'POST', headers: makeHeaders(body1), body: body1,
       });
       const data1   = await resp1.json();
@@ -50,28 +50,46 @@ export default async function handler(req, res) {
       if (total > 100) {
         const totalPages = Math.ceil(total / 100);
         for (let page = 2; page <= totalPages; page++) {
-          const bodyN  = JSON.stringify({ pageNo: page, pageSize: 100 });
-          const respN  = await fetch(`https://www.soliscloud.com:13333${path}`, {
+          const bodyN = JSON.stringify({ pageNo: page, pageSize: 100 });
+          const respN = await fetch(`https://www.soliscloud.com:13333${path}`, {
             method: 'POST', headers: makeHeaders(bodyN), body: bodyN,
           });
-          const dataN  = await respN.json();
-          const recs   = dataN?.data?.page?.records || [];
-          records      = records.concat(recs);
+          const dataN = await respN.json();
+          records = records.concat(dataN?.data?.page?.records || []);
         }
       }
 
-      const plants = records.map(s => ({
-        id:          String(s.id),
-        name:        s.stationName,
-        power:       s.capacity        || 0,
-        powerNow:    s.power           || 0,
-        energyDay:   s.dayEnergy       || 0,
-        energyMonth: s.monthEnergy     || 0,
-        energyTotal: s.allEnergy       || 0,
-        status:      s.stationStatus === 1 ? 'OK' : s.stationStatus === 2 ? 'ALARMING' : 'OFFLINE',
-        manufacturer:'Solis',
-        updated_at:  new Date().toISOString(),
-      }));
+      const plants = records.map(s => {
+        // Mapeamento correto do status Solis:
+        // 0 = sem dados, 1 = normal, 2 = alarme, 3 = offline
+        // Fallback: se powerNow > 0, está online
+        let status;
+        if (s.stationStatus === 1) {
+          status = 'OK';
+        } else if (s.stationStatus === 2) {
+          status = 'ALARMING';
+        } else if (s.stationStatus === 3) {
+          status = 'OFFLINE';
+        } else if (parseFloat(s.power) > 0) {
+          // powerNow > 0 = gerando energia = online
+          status = 'OK';
+        } else {
+          status = 'OFFLINE';
+        }
+
+        return {
+          id:          String(s.id),
+          name:        s.stationName,
+          power:       s.capacity     || 0,
+          powerNow:    s.power        || 0,
+          energyDay:   s.dayEnergy    || 0,
+          energyMonth: s.monthEnergy  || 0,
+          energyTotal: s.allEnergy    || 0,
+          status,
+          manufacturer:'Solis',
+          updated_at:  new Date().toISOString(),
+        };
+      });
 
       return res.json({ ok: true, total: plants.length, data: plants });
 
