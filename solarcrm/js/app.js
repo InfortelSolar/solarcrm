@@ -24,6 +24,7 @@ const App = {
     this.bindTopbar()
     this.bindMenu()
     await GDash.load()
+    await SolPlanet.load()
     await this.loadConfig()
     this.render('dashboard')
     const badge = document.getElementById('badge-alertas')
@@ -45,7 +46,6 @@ const App = {
   },
 
   async salvarConfig() {
-    // Lê os valores atuais dos toggles e campos
     const toggles = {
       envioAutomatico: !document.querySelector('[aria-label="Toggle envio automático"]')?.classList.contains('off'),
       email:           !document.querySelector('[aria-label="Toggle email"]')?.classList.contains('off'),
@@ -370,6 +370,7 @@ const App = {
   async recarregarDados() {
     this.toast('Atualizando dados...');
     await GDash.load();
+    await SolPlanet.load();
     this.render(this.currentPage);
     const badge = document.getElementById('badge-alertas');
     if (badge) badge.textContent = DB.alertas.length;
