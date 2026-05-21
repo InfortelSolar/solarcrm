@@ -114,7 +114,7 @@ async function getAllPlants(token) {
 
   do {
     const data = await apiGet(
-      `/getPlanListPro?token=${encodeURIComponent(token)}&order=0&pageNum=${current}&pageSize=50`,
+      `/getPlanListPro?token=${token}&order=0&pageNum=${current}&pageSize=50`,
       token
     );
 
