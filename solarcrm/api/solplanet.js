@@ -140,7 +140,8 @@ async function apiGet(path, token) {
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status} ao chamar ${path}`);
+    const body = await response.text().catch(() => '');
+    throw new Error(`HTTP ${response.status} ao chamar ${path} — body: ${body.slice(0, 300)}`);
   }
 
   const json = await response.json();
