@@ -46,17 +46,20 @@ export default async function handler(req, res) {
 
       // ─── Summary para o Dashboard ─────────────────────────────────────────
       case 'summary': {
-        const [plants, overview] = await Promise.all([
-          getAllPlants(token),
-          apiGet('/overview/getPlantOverview?version=1', token)
-        ]);
+        const plants = await getAllPlants(token);
 
         let online = 0, offline = 0, warning = 0;
+        let totalPowerKw = 0, totalEtodayKwh = 0, totalEtotalKwh = 0;
+
         for (const p of plants) {
           const s = String(p.status ?? p.plantStatus ?? '');
           if (s === '1' || s === 'normal')       online++;
           else if (s === '2' || s === 'warning') warning++;
           else                                    offline++;
+
+          totalPowerKw    += parseFloat(p.power      ?? p.totalPower   ?? 0);
+          totalEtodayKwh  += parseFloat(p.eToday     ?? p.todayEnergy  ?? 0);
+          totalEtotalKwh  += parseFloat(p.eTotal     ?? p.totalEnergy  ?? 0);
         }
 
         return res.status(200).json({
@@ -67,10 +70,9 @@ export default async function handler(req, res) {
             online,
             offline,
             warning,
-            // Campos do getPlantOverview — usa o que vier disponível
-            totalPowerKw:   overview?.totalPower   ?? overview?.installedPower ?? 0,
-            totalEtodayKwh: overview?.todayEnergy  ?? overview?.eToday         ?? 0,
-            totalEtotalKwh: overview?.totalEnergy  ?? overview?.eTotal         ?? 0,
+            totalPowerKw:   round(totalPowerKw),
+            totalEtodayKwh: round(totalEtodayKwh),
+            totalEtotalKwh: round(totalEtotalKwh),
           },
           plants: plants.map(p => ({
             id:          p.plantId   ?? p.id ?? p.apikey,
@@ -151,6 +153,10 @@ async function apiGet(path, token) {
   }
 
   return json;
+}
+
+function round(val, decimals = 2) {
+  return Math.round(val * 10 ** decimals) / 10 ** decimals;
 }
 
 function statusLabel(code) {
