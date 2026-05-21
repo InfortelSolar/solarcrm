@@ -2,10 +2,10 @@
  * api/solplanet.js — Proxy SolPlanet / AiSWEI Cloud
  * Vercel Serverless Function
  *
- * Variáveis de ambiente necessárias (Vercel):
- *   SOLPLANET_TOKEN      → User token (recebido por e-mail da SolPlanet)
- *   SOLPLANET_APP_KEY    → AppKey (do portal, configurações de segurança)
- *   SOLPLANET_APP_SECRET → AppSecret (do portal, configurações de segurança)
+ * Variáveis de ambiente:
+ *   SOLPLANET_TOKEN      → User token (recebido por e-mail)
+ *   SOLPLANET_APP_KEY    → AppKey (portal, configurações de segurança)
+ *   SOLPLANET_APP_SECRET → AppSecret (portal, configurações de segurança)
  */
 
 import crypto from 'crypto';
@@ -47,7 +47,6 @@ export default async function handler(req, res) {
           if (s === '1')      online++;
           else if (s === '2') warning++;
           else                offline++;
-
           totalPowerKw   += parseFloat(p.totalpower ?? 0);
           totalEtodayKwh += parseFloat(p.etoday     ?? 0);
           totalEtotalKwh += parseFloat(p.etotal      ?? 0);
@@ -57,7 +56,7 @@ export default async function handler(req, res) {
           success: true,
           source: 'solplanet',
           summary: {
-            totalPlants:    plants.length,
+            totalPlants: plants.length,
             online, offline, warning,
             totalPowerKw:   round(totalPowerKw),
             totalEtodayKwh: round(totalEtodayKwh),
@@ -95,7 +94,8 @@ async function getAllPlants(token, appKey, appSecret) {
   let totalPages = 1;
 
   do {
-    const path = `/pro/getPlanListPro?token=${token}&order=0&pageNum=${pageNum}&pageSize=50`;
+    // Params em ordem ALFABÉTICA conforme exige o servidor
+    const path = `/pro/getPlanListPro?order=0&pageNum=${pageNum}&pageSize=50&token=${token}`;
     const data = await apiGet(path, appKey, appSecret);
     const list = data?.data?.result ?? [];
     allPlants = allPlants.concat(Array.isArray(list) ? list : []);
@@ -113,7 +113,7 @@ async function apiGet(path, appKey, appSecret) {
   const accept    = 'application/json';
   const date      = new Date().toUTCString();
 
-  // Headers que participam da assinatura (em ordem lexicográfica)
+  // Headers que participam da assinatura (ordem lexicográfica)
   const signHeaders = {
     'x-ca-key':       appKey,
     'x-ca-nonce':     nonce,
@@ -122,8 +122,16 @@ async function apiGet(path, appKey, appSecret) {
 
   const signHeaderNames = Object.keys(signHeaders).sort().join(',');
 
-  // Monta a string para assinar
-  // Formato: HTTPMethod\nAccept\nContent-MD5\nContent-Type\nDate\nHeaders\nUrl
+  // Garante que query params estão em ordem alfabética
+  const [pathOnly, queryString] = path.split('?');
+  const sortedQuery = (queryString || '')
+    .split('&')
+    .filter(Boolean)
+    .sort()
+    .join('&');
+  const sortedPath = sortedQuery ? `${pathOnly}?${sortedQuery}` : pathOnly;
+
+  // StringToSign: GET\nAccept\nContent-MD5\nContent-Type\nDate\nHeaders\nUrl
   const headersString = Object.keys(signHeaders).sort()
     .map(k => `${k}:${signHeaders[k]}`)
     .join('\n');
@@ -131,20 +139,20 @@ async function apiGet(path, appKey, appSecret) {
   const stringToSign = [
     'GET',
     accept,
-    '',          // Content-MD5 vazio para GET
-    '',          // Content-Type vazio para GET
+    '',           // Content-MD5 vazio
+    '',           // Content-Type vazio
     date,
     headersString,
-    path,
+    sortedPath,
   ].join('\n');
 
-  // Calcula a assinatura HMAC-SHA256
+  // Calcula HMAC-SHA256
   const signature = crypto
     .createHmac('sha256', appSecret)
     .update(stringToSign, 'utf8')
     .digest('base64');
 
-  const url = `${BASE_URL}${path}`;
+  const url = `${BASE_URL}${sortedPath}`;
 
   const response = await fetch(url, {
     method: 'GET',
@@ -163,7 +171,7 @@ async function apiGet(path, appKey, appSecret) {
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     const xcaError = response.headers.get('x-ca-error-message') || '';
-    throw new Error(`HTTP ${response.status} — xca: ${xcaError} — body: ${body.slice(0, 300)}`);
+    throw new Error(`HTTP ${response.status} — xca: ${xcaError} — body: ${body.slice(0, 500)}`);
   }
 
   const json = await response.json();
@@ -174,6 +182,7 @@ async function apiGet(path, appKey, appSecret) {
 }
 
 function round(val, d = 2) { return Math.round(val * 10**d) / 10**d; }
+
 function statusLabel(code) {
   switch (String(code ?? '')) {
     case '1': return 'normal';
