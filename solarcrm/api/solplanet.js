@@ -6,7 +6,7 @@
  *   SOLPLANET_TOKEN      → User Token recebido por e-mail da SolPlanet
  *   SOLPLANET_APP_SECRET → APP Secret (reservado — usado apenas na assinatura do OLDAPI legado)
  *
- * Base URL: https://ap-southeast-1-api-genergal.aisweicloud.com/pro/
+ * Base URL: https://internation-pro-cloud.solplanet.net/pro/
  *
  * Endpoints implementados:
  *   ?action=plants           → getPlanListPro       (lista todas as plantas)
@@ -17,7 +17,7 @@
  *   ?action=summary          → agrega KPIs de todas as plantas (para o dashboard)
  */
 
-const BASE_URL = 'https://ap-southeast-1-api-genergal.aisweicloud.com/pro';
+const BASE_URL = 'https://internation-pro-cloud.solplanet.net/pro';
 const PAGE_SIZE = 100; // máximo por página
 
 export default async function handler(req, res) {
