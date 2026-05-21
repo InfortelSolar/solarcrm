@@ -1,193 +1,133 @@
 /**
- * api/solplanet.js — Proxy SolPlanet / AiSWEI Cloud
- * Vercel Serverless Function
- *
- * Variáveis de ambiente:
- *   SOLPLANET_TOKEN      → User token (recebido por e-mail)
- *   SOLPLANET_APP_KEY    → AppKey (portal, configurações de segurança)
- *   SOLPLANET_APP_SECRET → AppSecret (portal, configurações de segurança)
+ * js/solplanet.js — Integração SolPlanet para o SolarCRM
+ * Segue o mesmo padrão do js/gdash.js (Solis)
  */
 
-import crypto from 'crypto';
+const SolPlanet = (() => {
+  let _cache = null;
+  let _cacheTime = 0;
+  const CACHE_TTL = 5 * 60 * 1000;
 
-const BASE_URL = 'https://ap-southeast-1-api-genergal.aisweicloud.com';
+  async function fetchPlants() {
+    const now = Date.now();
+    if (_cache && now - _cacheTime < CACHE_TTL) return _cache;
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+    const res = await fetch('/api/solplanet?action=summary');
+    if (!res.ok) throw new Error(`SolPlanet API error: ${res.status}`);
+    const json = await res.json();
+    if (!json.success) throw new Error('SolPlanet retornou success=false');
 
-  const token     = process.env.SOLPLANET_TOKEN;
-  const appKey    = process.env.SOLPLANET_APP_KEY;
-  const appSecret = process.env.SOLPLANET_APP_SECRET;
-
-  if (!token || !appKey || !appSecret) {
-    return res.status(500).json({ error: 'Variáveis SOLPLANET_TOKEN, SOLPLANET_APP_KEY e SOLPLANET_APP_SECRET são obrigatórias' });
+    _cache     = json.plants;
+    _cacheTime = now;
+    return _cache;
   }
 
-  const { action = 'summary' } = req.query;
+  function plantToCliente(p) {
+    const st = p.status === 'normal' ? 'ok' : p.status === 'warning' ? 'warn' : 'err';
+    const initials = (p.name || '').split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase();
+    const bgMap  = { ok: '#E1F5EE', warn: '#FAEEDA', err: '#FCEBEB' };
+    const corMap = { ok: '#0F6E56', warn: '#854F0B', err: '#A32D2D' };
+    const power  = parseFloat(p.powerKw) || 0;
+    const meta   = Math.round(power * 110);
+    const perf   = meta > 0 ? Math.min(100, Math.round((p.etodayKwh * 30 / meta) * 100)) : 0;
 
-  try {
-    switch (action) {
+    return {
+      id: p.id,
+      iniciais: initials,
+      avBg: bgMap[st],
+      avCor: corMap[st],
+      nome: p.name,
+      tipo: 'Solar',
+      endereco: p.address || '',
+      email: '', whats: '',
+      dataInstalacao: '',
+      tarifa: 0.82,
+      potencia: power,
+      paineis: Math.round(power / 0.55),
+      inversor: 'SolPlanet',
+      status: st,
+      statusLabel: st === 'err' ? 'Crítico' : st === 'warn' ? 'Offline' : 'Normal',
+      geracaoHoje:  parseFloat(p.etodayKwh)  || 0,
+      geracaoMes:   parseFloat(p.etotalKwh)  || 0,
+      metaMes: meta,
+      hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
+      performance: perf,
+      relatoriosEnviados: [],
+      fonte: 'solplanet',
+    };
+  }
 
-      case 'plants': {
-        const plants = await getAllPlants(token, appKey, appSecret);
-        return res.status(200).json({ success: true, total: plants.length, data: plants });
+  function plantToInversor(p, idx) {
+    const st = p.status === 'normal' ? 'ok' : p.status === 'warning' ? 'warn' : 'err';
+    return {
+      id: p.id,
+      sigla: 'SP',
+      bgCol: '#EEF2FF', txtCol: '#3730A3',
+      modelo: `SolPlanet ${parseFloat(p.powerKw).toFixed(2)} kWp`,
+      cliente: p.name,
+      serial: (p.id || '').slice(0,8).toUpperCase(),
+      api: 'SolPlanet Cloud',
+      status: st,
+      statusLabel: st === 'ok' ? 'Online' : st === 'err' ? 'Alarme' : 'Offline',
+      geracaoHoje: parseFloat(p.etodayKwh) || 0,
+      temp: st === 'ok' ? (34 + (idx % 10)) : null,
+      fonte: 'solplanet',
+    };
+  }
+
+  function plantToAlerta(p) {
+    const tipo = p.status === 'error' ? 'err' : 'warn';
+    return {
+      id: p.id, tipo,
+      icon: tipo === 'err' ? 'ti-alert-circle' : 'ti-alert-triangle',
+      titulo: `${p.name}: ${p.status === 'error' ? 'Alarme ativo' : 'Sistema offline'}`,
+      detalhe: `SolPlanet · ${p.powerKw} kWp · ${p.lastUpdate || ''}`,
+      acao: 'Diagnosticar',
+    };
+  }
+
+  async function load() {
+    try {
+      const plants = await fetchPlants();
+
+      let online = 0, offline = 0, warning = 0;
+      let totalEnergyDay = 0, totalEnergyMonth = 0;
+      const alerts = [];
+
+      for (const p of plants) {
+        if (p.status === 'normal')       online++;
+        else if (p.status === 'warning') warning++;
+        else                             offline++;
+
+        totalEnergyDay   += parseFloat(p.etodayKwh) || 0;
+        totalEnergyMonth += parseFloat(p.etotalKwh) || 0;
+
+        if (p.status !== 'normal') alerts.push(p);
       }
 
-      case 'summary': {
-        const plants = await getAllPlants(token, appKey, appSecret);
+      // Mescla com os dados já carregados pelo Solis
+      DB.clientes   = [...(DB.clientes   || []), ...plants.map(p => plantToCliente(p))];
+      DB.inversores = [...(DB.inversores || []), ...plants.map((p, i) => plantToInversor(p, i))];
+      DB.alertas    = [...(DB.alertas    || []), ...alerts.map(p => plantToAlerta(p))];
 
-        let online = 0, offline = 0, warning = 0;
-        let totalPowerKw = 0, totalEtodayKwh = 0, totalEtotalKwh = 0;
+      // Soma nos KPIs existentes
+      DB.dashKpis.clientesAtivos = (DB.dashKpis.clientesAtivos || 0) + plants.length;
+      DB.dashKpis.alertasAtivos  = (DB.dashKpis.alertasAtivos  || 0) + alerts.length;
+      DB.dashKpis.geracaoHoje    = parseFloat(((DB.dashKpis.geracaoHoje || 0) + totalEnergyDay).toFixed(2));
+      DB.dashKpis.economiaMes    = (DB.dashKpis.economiaMes || 0) + Math.round(totalEnergyMonth * 0.82);
 
-        for (const p of plants) {
-          const s = String(p.status ?? '0');
-          if (s === '1')      online++;
-          else if (s === '2') warning++;
-          else                offline++;
-          totalPowerKw   += parseFloat(p.totalpower ?? 0);
-          totalEtodayKwh += parseFloat(p.etoday     ?? 0);
-          totalEtotalKwh += parseFloat(p.etotal      ?? 0);
-        }
+      console.log('[SolPlanet] OK:', {
+        total:    plants.length,
+        online, offline, warning,
+        alertas:  alerts.length,
+        energyDay: totalEnergyDay.toFixed(1) + ' kWh',
+      });
 
-        return res.status(200).json({
-          success: true,
-          source: 'solplanet',
-          summary: {
-            totalPlants: plants.length,
-            online, offline, warning,
-            totalPowerKw:   round(totalPowerKw),
-            totalEtodayKwh: round(totalEtodayKwh),
-            totalEtotalKwh: round(totalEtotalKwh),
-          },
-          plants: plants.map(p => ({
-            id:         p.apikey,
-            name:       p.name,
-            status:     statusLabel(p.status),
-            statusCode: p.status,
-            powerKw:    p.totalpower ?? 0,
-            etodayKwh:  p.etoday    ?? 0,
-            etotalKwh:  p.etotal    ?? 0,
-            lastUpdate: p.ludt,
-            address:    p.position,
-            source:     'solplanet',
-          }))
-        });
-      }
-
-      default:
-        return res.status(400).json({ error: `Action desconhecida: "${action}"`, available: ['summary', 'plants'] });
+    } catch (err) {
+      console.warn('[SolPlanet] Falha ao carregar:', err.message);
+      // Não quebra o app — Solis continua funcionando
     }
-
-  } catch (err) {
-    console.error('[SolPlanet Error]', err.message);
-    return res.status(500).json({ error: 'Erro ao comunicar com a API SolPlanet', detail: err.message });
-  }
-}
-
-// ─── Paginação automática ─────────────────────────────────────────────────────
-async function getAllPlants(token, appKey, appSecret) {
-  let allPlants = [];
-  let pageNum = 1;
-  let totalPages = 1;
-
-  do {
-    // Params em ordem ALFABÉTICA conforme exige o servidor
-    const path = `/pro/getPlanListPro?order=0&pageNum=${pageNum}&pageSize=50&token=${token}`;
-    const data = await apiGet(path, appKey, appSecret);
-    const list = data?.data?.result ?? [];
-    allPlants = allPlants.concat(Array.isArray(list) ? list : []);
-    totalPages = data?.data?.totalPages ?? 1;
-    pageNum++;
-  } while (pageNum <= totalPages);
-
-  return allPlants;
-}
-
-// ─── Requisição GET com assinatura Alibaba Cloud API Gateway ─────────────────
-async function apiGet(path, appKey, appSecret) {
-  const timestamp = Date.now().toString();
-  const nonce     = crypto.randomUUID();
-  const accept    = 'application/json';
-  const date      = new Date().toUTCString();
-
-  // Headers que participam da assinatura (ordem lexicográfica)
-  const signHeaders = {
-    'x-ca-key':       appKey,
-    'x-ca-nonce':     nonce,
-    'x-ca-timestamp': timestamp,
-  };
-
-  const signHeaderNames = Object.keys(signHeaders).sort().join(',');
-
-  // Garante que query params estão em ordem alfabética
-  const [pathOnly, queryString] = path.split('?');
-  const sortedQuery = (queryString || '')
-    .split('&')
-    .filter(Boolean)
-    .sort()
-    .join('&');
-  const sortedPath = sortedQuery ? `${pathOnly}?${sortedQuery}` : pathOnly;
-
-  // StringToSign: GET\nAccept\nContent-MD5\nContent-Type\nDate\nHeaders\nUrl
-  const headersString = Object.keys(signHeaders).sort()
-    .map(k => `${k}:${signHeaders[k]}`)
-    .join('\n');
-
-  const stringToSign = [
-    'GET',
-    accept,
-    '',           // Content-MD5 vazio
-    '',           // Content-Type vazio
-    date,
-    headersString,
-    sortedPath,
-  ].join('\n');
-
-  // Calcula HMAC-SHA256
-  const signature = crypto
-    .createHmac('sha256', appSecret)
-    .update(stringToSign, 'utf8')
-    .digest('base64');
-
-  const url = `${BASE_URL}${sortedPath}`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept':                 accept,
-      'Date':                   date,
-      'X-Ca-Key':               appKey,
-      'X-Ca-Nonce':             nonce,
-      'X-Ca-Timestamp':         timestamp,
-      'X-Ca-Signature-Headers': signHeaderNames,
-      'X-Ca-Signature':         signature,
-      'X-Ca-Stage':             'RELEASE',
-    }
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    const xcaError = response.headers.get('x-ca-error-message') || '';
-    throw new Error(`HTTP ${response.status} — xca: ${xcaError} — body: ${body.slice(0, 500)}`);
   }
 
-  const json = await response.json();
-  if (json.status && json.status !== 200) {
-    throw new Error(`API erro ${json.status}: ${json.info || 'sem mensagem'}`);
-  }
-  return json;
-}
-
-function round(val, d = 2) { return Math.round(val * 10**d) / 10**d; }
-
-function statusLabel(code) {
-  switch (String(code ?? '')) {
-    case '1': return 'normal';
-    case '2': return 'warning';
-    case '3': return 'error';
-    default:  return 'offline';
-  }
-}
+  return { fetchPlants, plantToCliente, plantToInversor, plantToAlerta, load };
+})();
