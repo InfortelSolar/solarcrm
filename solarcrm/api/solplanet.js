@@ -5,7 +5,7 @@
  * Variáveis de ambiente necessárias (Vercel):
  *   SOLPLANET_TOKEN → token enviado no header de cada requisição
  *
- * Base URL: https://internation-pro-cloud.solplanet.net/api/
+ * Base URL: https://ap-southeast-1-api-genergal.aisweicloud.com/pro/
  *
  * Endpoints implementados:
  *   ?action=summary  → agrega KPIs de todas as plantas (dashboard)
@@ -13,7 +13,7 @@
  *   ?action=overview → resumo geral (getPlantOverview)
  */
 
-const BASE_URL = 'https://internation-pro-cloud.solplanet.net/api';
+const BASE_URL = 'https://ap-southeast-1-api-genergal.aisweicloud.com/pro';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -57,9 +57,9 @@ export default async function handler(req, res) {
           else if (s === '2' || s === 'warning') warning++;
           else                                    offline++;
 
-          totalPowerKw    += parseFloat(p.power      ?? p.totalPower   ?? 0);
-          totalEtodayKwh  += parseFloat(p.eToday     ?? p.todayEnergy  ?? 0);
-          totalEtotalKwh  += parseFloat(p.eTotal     ?? p.totalEnergy  ?? 0);
+          totalPowerKw    += parseFloat(p.totalpower ?? 0);
+          totalEtodayKwh  += parseFloat(p.etoday     ?? 0);
+          totalEtotalKwh  += parseFloat(p.etotal      ?? 0);
         }
 
         return res.status(200).json({
@@ -75,15 +75,15 @@ export default async function handler(req, res) {
             totalEtotalKwh: round(totalEtotalKwh),
           },
           plants: plants.map(p => ({
-            id:          p.plantId   ?? p.id ?? p.apikey,
-            name:        p.plantName ?? p.name,
-            status:      statusLabel(p.status ?? p.plantStatus),
-            statusCode:  p.status    ?? p.plantStatus,
-            powerKw:     p.power     ?? p.totalPower ?? 0,
-            etodayKwh:   p.eToday    ?? p.todayEnergy ?? 0,
-            etotalKwh:   p.eTotal    ?? p.totalEnergy ?? 0,
-            lastUpdate:  p.lastUpdateTime ?? p.ludt,
-            address:     p.address   ?? p.position,
+            id:          p.apikey,
+            name:        p.name,
+            status:      statusLabel(p.status),
+            statusCode:  p.status,
+            powerKw:     p.totalpower  ?? 0,
+            etodayKwh:   p.etoday      ?? 0,
+            etotalKwh:   p.etotal      ?? 0,
+            lastUpdate:  p.ludt,
+            address:     p.position,
             source:      'solplanet',
           }))
         });
@@ -114,15 +114,14 @@ async function getAllPlants(token) {
 
   do {
     const data = await apiGet(
-      `/overview/getPlantList?current=${current}&pageSize=50&devType=3&version=1`,
+      `/getPlanListPro?token=${encodeURIComponent(token)}&order=0&pageNum=${current}&pageSize=50`,
       token
     );
 
-    const result = data?.result ?? data?.data?.result ?? [];
-    const list = Array.isArray(result) ? result : (result.list ?? result.records ?? []);
-    allPlants = allPlants.concat(list);
+    const list = data?.data?.result ?? [];
+    allPlants = allPlants.concat(Array.isArray(list) ? list : []);
 
-    totalPageNum = data?.result?.totalPageNum ?? data?.totalPageNum ?? 1;
+    totalPageNum = data?.data?.totalPages ?? 1;
     current++;
   } while (current <= totalPageNum);
 
@@ -137,8 +136,6 @@ async function apiGet(path, token) {
     headers: {
       'Accept':       'application/json',
       'Content-Type': 'application/json',
-      'token':        token,
-      'localE':       'pt_BR',
     }
   });
 
