@@ -25,6 +25,7 @@ const App = {
     this.bindMenu()
     await GDash.load()
     await SolPlanet.load()
+    await Fronius.load()
     await this.loadConfig()
     this.render('dashboard')
     const badge = document.getElementById('badge-alertas')
@@ -371,6 +372,7 @@ const App = {
     this.toast('Atualizando dados...');
     await GDash.load();
     await SolPlanet.load();
+    await Fronius.load();
     this.render(this.currentPage);
     const badge = document.getElementById('badge-alertas');
     if (badge) badge.textContent = DB.alertas.length;
