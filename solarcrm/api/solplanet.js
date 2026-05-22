@@ -46,48 +46,58 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const action = req.query.action || 'summary';
-
     const nonce     = crypto.randomBytes(8).toString('hex');
     const timestamp = String(Date.now());
 
-    const baseParams = {
+    const signParams = {
       appkey:    APP_KEY,
       nonce,
       timestamp,
       token:     TOKEN,
     };
+    const sign = buildSign(signParams, APP_SECRET);
 
-    if (action === 'summary' || action === 'plants') {
-      const pageNum  = 1;
-      const pageSize = 50;
+    const body = {
+      appkey:    APP_KEY,
+      nonce,
+      order:     '0',
+      pageNum:   '1',
+      pageSize:  '50',
+      timestamp,
+      token:     TOKEN,
+      sign,
+    };
 
-      const allParams = {
-        ...baseParams,
-        order:    '0',
-        pageNum:  String(pageNum),
-        pageSize: String(pageSize),
-        token:    TOKEN,
-      };
+    const data = await httpsPost('/pro/getPlanListPro', body);
 
-      // Assina apenas os params base (ordem alfabética)
-      const signParams = {
-        appkey:    APP_KEY,
-        nonce,
-        timestamp,
-        token:     TOKEN,
-      };
-      allParams.sign = buildSign(signParams, APP_SECRET);
+    if (!data || data.success !== true) {
+      return res.status(502).json({
+        success: false,
+        error: data?.detail || 'SolPlanet API error',
+        raw: data,
+      });
+    }
 
-      const data = await httpsPost('/pro/getPlanListPro', allParams);
+    const plants = (data.data || []).map(p => ({
+      id:        String(p.id),
+      name:      p.name,
+      address:   [p.address, p.city, p.province].filter(Boolean).join(', '),
+      powerKw:   parseFloat(p.totalpower) || 0,
+      status:    p.status === 1 ? 'normal' : p.status === 2 ? 'warning' : 'error',
+      etodayKwh: parseFloat(p.etoday)  || 0,
+      etotalKwh: parseFloat(p.etotal)  || 0,
+      lastUpdate: p.createdt || '',
+    }));
 
-      if (!data || data.success !== true) {
-        return res.status(502).json({
-          success: false,
-          error: data?.detail || 'SolPlanet API error',
-          raw: data,
-        });
-      }
+    return res.status(200).json({
+      success: true,
+      source:  'solplanet',
+      total:   data.total || plants.length,
+      plants,
+    });
 
-      const plants = (data.data || []).map(p => ({
-        id:         String(p.id),
+  } catch (err) {
+    console.error('[api/solplanet]', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
