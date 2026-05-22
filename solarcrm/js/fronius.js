@@ -1,113 +1,99 @@
 // js/fronius.js — Integração Fronius Solar.web para o SolarCRM
-// Chama /api/fronius (proxy Vercel) e injeta os cards no dashboard
-// Resiliente: não trava o app se falhar
+// Padrão idêntico ao gdash.js: popula DB.clientes, DB.inversores, DB.alertas
 
 const Fronius = (() => {
-  const API = "/api/fronius";
 
-  function statusLabel(s) {
-    if (!s) return { text: "–", cls: "status-unknown" };
-    const map = {
-      running:  { text: "Online",   cls: "status-online"  },
-      online:   { text: "Online",   cls: "status-online"  },
-      error:    { text: "Erro",     cls: "status-error"   },
-      offline:  { text: "Offline",  cls: "status-offline" },
-      warning:  { text: "Alerta",   cls: "status-warning" },
+  function plantToCliente(p) {
+    const st = p.error ? 'warn' : 'ok';
+    const initials = p.name.split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase();
+    const bgMap  = { ok: '#E1F5EE', warn: '#FAEEDA', err: '#FCEBEB' };
+    const corMap = { ok: '#0F6E56', warn: '#854F0B', err: '#A32D2D' };
+    const power      = parseFloat(p.peakPower_kWp) || 0;
+    const geracaoHoje = parseFloat(p.eToday_kWh)   || 0;
+    const meta        = Math.round(power * 110);
+    const perf        = meta > 0 ? Math.min(100, Math.round((geracaoHoje / meta) * 100)) : 0;
+
+    return {
+      id: p.id, iniciais: initials,
+      avBg: bgMap[st], avCor: corMap[st],
+      nome: p.name, tipo: 'Solar',
+      endereco: p.address?.city || '', email: '', whats: '',
+      dataInstalacao: '',
+      tarifa: 0.82,
+      potencia: power,
+      paineis: Math.round(power / 0.55),
+      inversor: 'Fronius',
+      status: st,
+      statusLabel: st === 'err' ? 'Crítico' : st === 'warn' ? 'Offline' : 'Normal',
+      geracaoHoje,
+      geracaoMes: geracaoHoje, // aggdata diário; mês seria outro endpoint
+      metaMes: meta,
+      hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
+      performance: perf,
+      relatoriosEnviados: [],
     };
-    return map[s.toLowerCase()] ?? { text: s, cls: "status-unknown" };
   }
 
-  function fmt(val, unit, decimals = 2) {
-    if (val === null || val === undefined) return "–";
-    return `${parseFloat(val).toFixed(decimals)} ${unit}`;
+  function plantToInversor(p) {
+    const st = p.error ? 'warn' : 'ok';
+    return {
+      id: p.id,
+      sigla: 'FRO',
+      bgCol: '#E8F4FD', txtCol: '#1565C0',
+      modelo: `Fronius ${parseFloat(p.peakPower_kWp || 0).toFixed(2)} kWp`,
+      cliente: p.name,
+      serial: p.id.slice(0,8).toUpperCase(),
+      api: 'Fronius Solar.web',
+      status: st,
+      statusLabel: st === 'ok' ? 'Online' : 'Offline',
+      geracaoHoje: parseFloat(p.eToday_kWh) || 0,
+      temp: null,
+      potencia: parseFloat(p.powerNow_W / 1000) || 0,
+    };
   }
 
-  function renderCard(plant) {
-    const st = statusLabel(plant.status);
-    const hasError = !!plant.error;
-
-    return `
-      <div class="plant-card fronius-card" data-id="${plant.id}">
-        <div class="card-header">
-          <span class="brand-badge fronius">Fronius</span>
-          <span class="status-dot ${st.cls}" title="${st.text}"></span>
-        </div>
-        <h3 class="plant-name">${plant.name}</h3>
-        ${hasError ? `<p class="card-error">⚠️ ${plant.error}</p>` : `
-        <div class="card-metrics">
-          <div class="metric">
-            <span class="metric-label">Hoje</span>
-            <span class="metric-value">${fmt(plant.eToday_kWh, "kWh")}</span>
-          </div>
-          <div class="metric">
-            <span class="metric-label">Agora</span>
-            <span class="metric-value">${plant.powerNow_W !== null ? fmt(plant.powerNow_W / 1000, "kW") : "–"}</span>
-          </div>
-          <div class="metric">
-            <span class="metric-label">Pico</span>
-            <span class="metric-value">${fmt(plant.peakPower_kWp, "kWp")}</span>
-          </div>
-        </div>
-        `}
-      </div>`;
+  function plantToAlerta(p) {
+    return {
+      id: p.id, tipo: 'warn',
+      icon: 'ti-alert-triangle',
+      titulo: `${p.name}: Fronius offline ou com erro`,
+      detalhe: p.error || 'Sem dados de geração',
+      acao: 'Diagnosticar',
+    };
   }
 
   async function load() {
-    console.log("[Fronius] Carregando...");
-
-    // Encontra o container do dashboard (mesmo padrão do gdash.js / solplanet.js)
-    const container =
-      document.getElementById("fronius-plants") ??
-      document.getElementById("plants-container") ??
-      document.querySelector(".plants-grid");
-
-    if (!container) {
-      console.warn("[Fronius] Container não encontrado, abortando.");
-      return;
-    }
-
-    // Skeleton loader
-    const skeletonId = "fronius-skeleton";
-    container.insertAdjacentHTML(
-      "beforeend",
-      `<div id="${skeletonId}" class="loading-skeleton">Carregando Fronius…</div>`
-    );
-
     try {
-      const res = await fetch(API);
+      const res = await fetch('/api/fronius');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      const plants = data.plants || [];
 
-      document.getElementById(skeletonId)?.remove();
+      const clientes  = plants.map(plantToCliente);
+      const inversores = plants.map(plantToInversor);
+      const alertas   = plants.filter(p => p.error).map(plantToAlerta);
 
-      if (!data.plants?.length) {
-        container.insertAdjacentHTML(
-          "beforeend",
-          `<p class="no-data">Nenhuma planta Fronius encontrada.</p>`
-        );
-        return;
-      }
+      // Acumula sobre o que Solis/SolPlanet já carregaram
+      DB.clientes   = [...(DB.clientes   || []), ...clientes];
+      DB.inversores = [...(DB.inversores || []), ...inversores];
+      DB.alertas    = [...(DB.alertas    || []), ...alertas];
 
-      const html = data.plants.map(renderCard).join("");
-      container.insertAdjacentHTML("beforeend", html);
+      // Soma KPIs
+      const totalHoje = plants.reduce((s, p) => s + (parseFloat(p.eToday_kWh) || 0), 0);
+      DB.dashKpis.clientesAtivos = (DB.dashKpis.clientesAtivos || 0) + plants.length;
+      DB.dashKpis.alertasAtivos  = (DB.dashKpis.alertasAtivos  || 0) + alertas.length;
+      DB.dashKpis.geracaoHoje    = parseFloat(((DB.dashKpis.geracaoHoje || 0) + totalHoje).toFixed(2));
+      DB.dashKpis.economiaMes    = Math.round((DB.dashKpis.geracaoHoje || 0) * 0.82);
 
-      console.log(`[Fronius] ${data.plants.length} plantas carregadas.`);
+      console.log('[Fronius] OK:', {
+        total:   plants.length,
+        alertas: alertas.length,
+        energyDay: totalHoje.toFixed(1) + ' kWh',
+      });
 
-      // Dispara evento para o app.js poder somar totais
-      document.dispatchEvent(
-        new CustomEvent("fronius:loaded", { detail: data })
-      );
     } catch (err) {
-      document.getElementById(skeletonId)?.remove();
-      console.error("[Fronius] Falha ao carregar:", err.message);
-
-      // Não trava o app — apenas mostra aviso discreto
-      container.insertAdjacentHTML(
-        "beforeend",
-        `<div class="card-error-banner">
-          ⚠️ Fronius indisponível: ${err.message}
-        </div>`
-      );
+      console.warn('[Fronius] Falha ao carregar:', err.message);
+      // Não trava o app
     }
   }
 
