@@ -7,7 +7,6 @@ const GDash = (() => {
     const now = Date.now();
     if (_cache && now - _cacheTime < CACHE_TTL) return _cache;
 
-    // Busca Solis diretamente
     const res  = await fetch('/api/gdash?source=solis');
     if (!res.ok) throw new Error(`Solis API error: ${res.status}`);
     const json = await res.json();
@@ -52,8 +51,6 @@ const GDash = (() => {
     const bgMap = { ok: '#E1F5EE', warn: '#FAEEDA', err: '#FCEBEB' };
     const corMap = { ok: '#0F6E56', warn: '#854F0B', err: '#A32D2D' };
     const power = parseFloat(p.power) || 0;
-
-    // Usa dados reais do Solis
     const geracaoHoje = parseFloat(p.energyDay)   || 0;
     const geracaoMes  = parseFloat(p.energyMonth) || 0;
     const meta        = Math.round(power * 110);
@@ -111,45 +108,56 @@ const GDash = (() => {
   }
 
   async function load() {
-    const plants = await fetchPlants();
-    const m      = calcMetrics(plants);
+    try {
+      const plants = await fetchPlants();
+      const m      = calcMetrics(plants);
 
-    DB.clientes   = plants.map((p)    => plantToCliente(p));
-    DB.inversores = plants.map((p, i) => plantToInversor(p, i));
-    DB.alertas    = m.alerts.map((p)  => plantToAlerta(p));
+      DB.clientes   = plants.map((p)    => plantToCliente(p));
+      DB.inversores = plants.map((p, i) => plantToInversor(p, i));
+      DB.alertas    = m.alerts.map((p)  => plantToAlerta(p));
 
-    // KPIs com dados reais do Solis
-    DB.dashKpis.clientesAtivos = m.total;
-    DB.dashKpis.alertasAtivos  = m.alerts.length;
-    DB.dashKpis.geracaoHoje    = parseFloat(m.totalEnergyDay.toFixed(2));
-    DB.dashKpis.economiaMes    = Math.round(m.totalEnergyMonth * 0.82);
+      DB.dashKpis.clientesAtivos = m.total;
+      DB.dashKpis.alertasAtivos  = m.alerts.length;
+      DB.dashKpis.geracaoHoje    = parseFloat(m.totalEnergyDay.toFixed(2));
+      DB.dashKpis.economiaMes    = Math.round(m.totalEnergyMonth * 0.82);
 
-    // Gráfico geração 7 dias baseado na geração real de hoje
-    const base = m.totalEnergyDay;
-    DB.dashKpis.geracaoDias = [
-      Math.round(base * 0.91), Math.round(base * 0.95), Math.round(base * 1.02),
-      Math.round(base * 0.98), Math.round(base * 1.05), Math.round(base * 0.72),
-      Math.round(base * 0.68),
-    ];
+      const base = m.totalEnergyDay;
+      DB.dashKpis.geracaoDias = [
+        Math.round(base * 0.91), Math.round(base * 0.95), Math.round(base * 1.02),
+        Math.round(base * 0.98), Math.round(base * 1.05), Math.round(base * 0.72),
+        Math.round(base * 0.68),
+      ];
 
-    // Gráfico economia acumulada 2026
-    const eco = DB.dashKpis.economiaMes;
-    DB.dashKpis.economiaMeses = [
-      Math.round(eco * 0.78), Math.round(eco * 0.82), Math.round(eco * 0.88),
-      Math.round(eco * 0.94), Math.round(eco),
-    ];
+      const eco = DB.dashKpis.economiaMes;
+      DB.dashKpis.economiaMeses = [
+        Math.round(eco * 0.78), Math.round(eco * 0.82), Math.round(eco * 0.88),
+        Math.round(eco * 0.94), Math.round(eco),
+      ];
 
-    // Carrega dados extras editados pelo gestor
-    await DB.loadClientesExtra();
+      await DB.loadClientesExtra();
 
-    console.log('[Solis] OK:', {
-      total:    m.total,
-      online:   m.online,
-      offline:  m.offline,
-      alertas:  m.alerts.length,
-      energyDay:   m.totalEnergyDay.toFixed(1) + ' kWh',
-      energyMonth: m.totalEnergyMonth.toFixed(1) + ' kWh',
-    });
+      console.log('[Solis] OK:', {
+        total:    m.total,
+        online:   m.online,
+        offline:  m.offline,
+        alertas:  m.alerts.length,
+        energyDay:   m.totalEnergyDay.toFixed(1) + ' kWh',
+        energyMonth: m.totalEnergyMonth.toFixed(1) + ' kWh',
+      });
+
+    } catch (err) {
+      // Solis falhou — não trava o dashboard
+      console.warn('[Solis] Falha ao carregar:', err.message);
+      DB.clientes   = DB.clientes   || [];
+      DB.inversores = DB.inversores || [];
+      DB.alertas    = DB.alertas    || [];
+      DB.dashKpis.clientesAtivos = DB.dashKpis.clientesAtivos || 0;
+      DB.dashKpis.alertasAtivos  = DB.dashKpis.alertasAtivos  || 0;
+      DB.dashKpis.geracaoHoje    = DB.dashKpis.geracaoHoje    || 0;
+      DB.dashKpis.economiaMes    = DB.dashKpis.economiaMes    || 0;
+      DB.dashKpis.geracaoDias    = DB.dashKpis.geracaoDias    || [0,0,0,0,0,0,0];
+      DB.dashKpis.economiaMeses  = DB.dashKpis.economiaMeses  || [0,0,0,0,0];
+    }
   }
 
   return { fetchPlants, calcMetrics, plantToCliente, plantToInversor, plantToAlerta, load };
