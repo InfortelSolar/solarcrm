@@ -86,7 +86,7 @@ export default async function handler(req, res) {
     const pageSize = 100;
 
     while (true) {
-      const json = await solisRequest('/v1/api/stationList', {
+      const json = await solisRequest('/v1/api/userStationList', {
         pageNo,
         pageSize,
       });
