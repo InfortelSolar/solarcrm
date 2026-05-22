@@ -40,10 +40,13 @@ async function getJwt() {
   return jwt;
 }
 
+// AccessKeyId + AccessKeyValue obrigatórios em TODOS os requests
 async function swqGet(path, jwt) {
   const res = await fetch(`${SWQAPI}${path}`, {
     headers: {
-      Authorization: `Bearer ${jwt}`,
+      "Authorization": `Bearer ${jwt}`,
+      "AccessKeyId": process.env.FRONIUS_ACCESS_KEY_ID,
+      "AccessKeyValue": process.env.FRONIUS_ACCESS_KEY_VALUE,
       "Content-Type": "application/json",
     },
   });
