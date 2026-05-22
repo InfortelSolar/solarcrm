@@ -2,6 +2,8 @@
 // Variáveis de ambiente necessárias na Vercel:
 //   FRONIUS_ACCESS_KEY_ID     → AccessKeyId gerado no Solar.web > User Settings > REST API
 //   FRONIUS_ACCESS_KEY_VALUE  → AccessKeyValue correspondente
+//   FRONIUS_USER              → e-mail de login do Solar.web
+//   FRONIUS_PASS              → senha do Solar.web
 
 const SWQAPI = "https://swqapi.solarweb.com";
 
@@ -20,12 +22,15 @@ async function getJwt() {
       "AccessKeyValue": process.env.FRONIUS_ACCESS_KEY_VALUE,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify({
+      UserId: process.env.FRONIUS_USER,
+      Password: process.env.FRONIUS_PASS,
+    }),
   });
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Fronius auth failed ${res.status}: ${body}`);
+    throw new Error(`Falha na autenticação Fronius ${res.status}: ${body}`);
   }
 
   const data = await res.json();
