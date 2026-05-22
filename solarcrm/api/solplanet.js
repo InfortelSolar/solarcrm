@@ -13,18 +13,13 @@ function buildSign(params, secret) {
     .update(str).digest('hex').toUpperCase();
 }
 
-function httpsPost(path, body) {
+function httpsGet(path) {
   return new Promise((resolve, reject) => {
-    const payload = JSON.stringify(body);
     const options = {
       hostname: BASE_HOST,
       path,
-      method: 'POST',
-      headers: {
-        'Content-Type':   'application/json',
-        'Content-Length': Buffer.byteLength(payload),
-        'x-access-key':   APP_KEY,
-      },
+      method: 'GET',
+      headers: { 'x-access-key': APP_KEY },
     };
     const req = https.request(options, res => {
       let data = '';
@@ -35,7 +30,6 @@ function httpsPost(path, body) {
       });
     });
     req.on('error', reject);
-    req.write(payload);
     req.end();
   });
 }
@@ -57,18 +51,18 @@ module.exports = async (req, res) => {
     };
     const sign = buildSign(signParams, APP_SECRET);
 
-    const body = {
-      appkey:    APP_KEY,
+    const qs = new URLSearchParams({
+      appkey:   APP_KEY,
       nonce,
-      order:     '0',
-      pageNum:   '1',
-      pageSize:  '50',
+      order:    '0',
+      pageNum:  '1',
+      pageSize: '50',
       timestamp,
-      token:     TOKEN,
+      token:    TOKEN,
       sign,
-    };
+    }).toString();
 
-    const data = await httpsPost('/pro/getPlanListPro', body);
+    const data = await httpsGet(`/pro/getPlanListPro?${qs}`);
 
     if (!data || data.success !== true) {
       return res.status(502).json({
@@ -79,13 +73,13 @@ module.exports = async (req, res) => {
     }
 
     const plants = (data.data || []).map(p => ({
-      id:        String(p.id),
-      name:      p.name,
-      address:   [p.address, p.city, p.province].filter(Boolean).join(', '),
-      powerKw:   parseFloat(p.totalpower) || 0,
-      status:    p.status === 1 ? 'normal' : p.status === 2 ? 'warning' : 'error',
-      etodayKwh: parseFloat(p.etoday)  || 0,
-      etotalKwh: parseFloat(p.etotal)  || 0,
+      id:         String(p.id),
+      name:       p.name,
+      address:    [p.address, p.city, p.province].filter(Boolean).join(', '),
+      powerKw:    parseFloat(p.totalpower) || 0,
+      status:     p.status === 1 ? 'normal' : p.status === 2 ? 'warning' : 'error',
+      etodayKwh:  parseFloat(p.etoday)  || 0,
+      etotalKwh:  parseFloat(p.etotal)  || 0,
       lastUpdate: p.createdt || '',
     }));
 
