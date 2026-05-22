@@ -20,6 +20,7 @@ async function getJwt() {
       "AccessKeyValue": process.env.FRONIUS_ACCESS_KEY_VALUE,
       "Content-Type": "application/json",
     },
+    body: JSON.stringify({}),
   });
 
   if (!res.ok) {
