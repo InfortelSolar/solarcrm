@@ -1,166 +1,115 @@
 // ============================================================
-//  SolarCRM — Proxy Growatt API v1 (Vercel Serverless)
-//  Servidor: server.pvbutler.com (único servidor ativo)
+//  SolarCRM — Proxy Solis Cloud API (Vercel Serverless)
+//  api/gdash.js
 // ============================================================
 
-const SERVER = 'https://server.pvbutler.com';
+import crypto from 'crypto';
 
-function normalizePlant(p) {
-  const rawStatus = String(p.status ?? '-1');
-  let status;
-  if (rawStatus === '1')       status = 'OK';
-  else if (rawStatus === '0')  status = 'OFFLINE';
-  else                         status = 'NO_COMMUNICATION';
+const SOLIS_BASE    = 'https://www.soliscloud.com:13333';
+const SOLIS_KEY_ID  = process.env.SOLIS_KEY_ID;
+const SOLIS_SECRET  = process.env.SOLIS_KEY_SECRET;
 
-  const power = parseFloat(p.peak_power || p.nominalPower || p.peakPower || 0);
-
-  return {
-    id:            String(p.plant_id || p.id || Math.random()),
-    name:          p.name || p.plantName || 'Planta Growatt',
-    status,
-    manufacturer:  'Growatt',
-    power:         power.toFixed(2),
-    energyDay:     parseFloat(p.today_energy  || p.energyDay   || p.eDay   || 0).toFixed(2),
-    energyMonth:   parseFloat(p.month_energy  || p.energyMonth || p.eMonth || 0).toFixed(2),
-    energyTotal:   parseFloat(p.total_energy  || p.energyTotal || p.eTotal || 0).toFixed(2),
-    current_power: parseFloat(p.current_power || p.power || 0).toFixed(2),
-    updated_at:    p.last_update_time || p.lastUpdateTime || new Date().toISOString(),
-    created_at:    p.create_date      || p.createDate     || new Date().toISOString(),
-    alert:         status !== 'OK',
-  };
+function solisSign(keySecret, method, contentMd5, contentType, date, path) {
+  const str = [method, contentMd5, contentType, date, path].join('\n');
+  return crypto.createHmac('sha1', keySecret).update(str).digest('base64');
 }
 
-async function fetchWithToken(url, token, params = {}, method = 'GET') {
-  const headers = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'token': token.trim(),
-  };
+async function solisRequest(path, body = {}) {
+  const method      = 'POST';
+  const contentType = 'application/json';
+  const date        = new Date().toUTCString();
+  const bodyStr     = JSON.stringify(body);
+  const contentMd5  = crypto.createHash('md5').update(bodyStr).digest('base64');
+  const sign        = solisSign(SOLIS_SECRET, method, contentMd5, contentType, date, path);
+  const auth        = `API ${SOLIS_KEY_ID}:${sign}`;
 
-  let fetchUrl = url;
-  let body = undefined;
-  const allParams = { token: token.trim(), ...params };
-
-  if (method === 'GET') {
-    fetchUrl = `${url}?${new URLSearchParams(allParams).toString()}`;
-  } else {
-    body = new URLSearchParams(allParams).toString();
-  }
-
-  const res = await fetch(fetchUrl, {
-    method, headers, body,
+  const res = await fetch(`${SOLIS_BASE}${path}`, {
+    method,
+    headers: {
+      'Content-Type':  contentType,
+      'Content-MD5':   contentMd5,
+      'Date':          date,
+      'Authorization': auth,
+    },
+    body: bodyStr,
     signal: AbortSignal.timeout(15000),
   });
 
-  const text = await res.text();
-  try { return JSON.parse(text); }
-  catch(e) { throw new Error(`Resposta não-JSON (${res.status}): ${text.slice(0, 150)}`); }
+  if (!res.ok) throw new Error(`Solis HTTP ${res.status}`);
+  return res.json();
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function normalizeSolisPlant(p) {
+  // status: 1=normal, 2=alarm, 3=offline
+  const rawStatus = String(p.status ?? '3');
+  let status;
+  if (rawStatus === '1')      status = 'OK';
+  else if (rawStatus === '2') status = 'ALARMING';
+  else                        status = 'OFFLINE';
 
-module.exports = async (req, res) => {
+  return {
+    id:           String(p.id),
+    name:         p.stationName || p.name || 'Planta Solis',
+    status,
+    manufacturer: 'Solis',
+    power:        parseFloat(p.capacity || p.installedPower || 0).toFixed(2),
+    energyDay:    parseFloat(p.dayEnergy   || p.eToday  || 0).toFixed(2),
+    energyMonth:  parseFloat(p.monthEnergy || p.eMonth  || 0).toFixed(2),
+    energyTotal:  parseFloat(p.allEnergy   || p.eTotal  || 0).toFixed(2),
+    current_power:parseFloat(p.power       || p.pac     || 0).toFixed(2),
+    updated_at:   p.updateDate || new Date().toISOString(),
+    created_at:   p.createDate || new Date().toISOString(),
+    alert:        status !== 'OK',
+  };
+}
+
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const token    = (process.env.GROWATT_TOKEN || '').trim();
-  const username = (process.env.GROWATT_USER  || '').trim();
-  const debug    = req.query.debug === '1';
-  const debugLog = [];
+  const source = req.query.source || 'solis';
 
-  if (!token) {
-    return res.status(500).json({ ok: false, error: 'GROWATT_TOKEN não configurado' });
+  if (source !== 'solis') {
+    return res.status(400).json({ ok: false, error: `Source desconhecido: ${source}` });
   }
 
-  // ── Tentativa 1: GET /v1/plant/list
+  if (!SOLIS_KEY_ID || !SOLIS_SECRET) {
+    return res.status(500).json({ ok: false, error: 'SOLIS_KEY_ID ou SOLIS_KEY_SECRET não configurados' });
+  }
+
   try {
-    const url  = `${SERVER}/v1/plant/list`;
-    const json = await fetchWithToken(url, token, { page: '1', perpage: '100' }, 'GET');
-    if (debug) debugLog.push({ endpoint: '1-plant/list', response: json });
+    // Busca todas as plantas paginando
+    let allPlants = [];
+    let pageNo = 1;
+    const pageSize = 100;
 
-    if (json.error_code === 0) {
-      const plants = json.data?.plants || json.data?.datas || [];
-      if (plants.length > 0) {
-        return res.status(200).json({
-          ok: true, source: 'growatt', endpoint: url,
-          total: plants.length,
-          data: plants.map(normalizePlant),
-          ...(debug ? { debugLog } : {}),
-        });
-      }
+    while (true) {
+      const json = await solisRequest('/v1/api/stationList', {
+        pageNo,
+        pageSize,
+      });
+
+      const records = json?.data?.page?.records || [];
+      allPlants = allPlants.concat(records);
+
+      const total = json?.data?.page?.total || 0;
+      if (allPlants.length >= total || records.length === 0) break;
+      pageNo++;
     }
-  } catch(e) {
-    if (debug) debugLog.push({ endpoint: '1-plant/list', error: e.message });
+
+    const plants = allPlants.map(normalizeSolisPlant);
+
+    return res.status(200).json({
+      ok:     true,
+      source: 'solis',
+      total:  plants.length,
+      data:   plants,
+    });
+
+  } catch (err) {
+    console.error('[api/gdash Solis]', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
   }
-
-  await sleep(1000);
-
-  // ── Tentativa 2: POST /v1/plant/user_plant_list
-  if (username) {
-    try {
-      const url  = `${SERVER}/v1/plant/user_plant_list`;
-      const json = await fetchWithToken(url, token, {
-        user_name: username, page: '1', perpage: '100',
-      }, 'POST');
-      if (debug) debugLog.push({ endpoint: '2-user_plant_list', response: json });
-
-      if (json.error_code === 0) {
-        const plants = json.data?.plants || json.data?.datas || [];
-        if (plants.length > 0) {
-          return res.status(200).json({
-            ok: true, source: 'growatt', endpoint: url,
-            total: plants.length,
-            data: plants.map(normalizePlant),
-            ...(debug ? { debugLog } : {}),
-          });
-        }
-      }
-    } catch(e) {
-      if (debug) debugLog.push({ endpoint: '2-user_plant_list', error: e.message });
-    }
-  }
-
-  await sleep(1000);
-
-  // ── Tentativa 3: GET /v1/user/c_user_list → plantas de cada sub-usuário
-  try {
-    const url  = `${SERVER}/v1/user/c_user_list`;
-    const json = await fetchWithToken(url, token, { page: '1', perpage: '100' }, 'GET');
-    if (debug) debugLog.push({ endpoint: '3-c_user_list', response: json });
-
-    if (json.error_code === 0) {
-      const users = json.data?.c_user || [];
-      const allPlants = [];
-
-      for (const u of users.slice(0, 20)) {
-        await sleep(500);
-        try {
-          const pJson = await fetchWithToken(`${SERVER}/v1/plant/list`, token, {
-            C_user_id: u.c_user_id, page: '1', perpage: '50',
-          }, 'GET');
-          if (pJson.error_code === 0) {
-            allPlants.push(...(pJson.data?.plants || []));
-          }
-        } catch(e) {}
-      }
-
-      if (allPlants.length > 0) {
-        return res.status(200).json({
-          ok: true, source: 'growatt', endpoint: url,
-          total: allPlants.length,
-          data: allPlants.map(normalizePlant),
-          ...(debug ? { debugLog } : {}),
-        });
-      }
-    }
-  } catch(e) {
-    if (debug) debugLog.push({ endpoint: '3-c_user_list', error: e.message });
-  }
-
-  return res.status(500).json({
-    ok: false,
-    error: 'Nenhum endpoint retornou plantas',
-    ...(debug ? { debugLog } : { tip: 'Use ?debug=1 para ver detalhes' }),
-  });
-};
+}
