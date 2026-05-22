@@ -6,14 +6,14 @@ const APP_SECRET = process.env.SOLPLANET_APP_SECRET;
 const TOKEN      = process.env.SOLPLANET_TOKEN;
 const BASE_HOST  = 'gateway.isolarcloud.com';
 
-function sign(params, secret) {
-  const sorted = Object.keys(params).sort()
+function buildSign(params, secret) {
+  const str = Object.keys(params).sort()
     .map(k => `${k}${params[k]}`).join('');
   return crypto.createHmac('sha256', secret)
-    .update(sorted).digest('hex').toUpperCase();
+    .update(str).digest('hex').toUpperCase();
 }
 
-function post(path, body) {
+function httpsPost(path, body) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
     const options = {
@@ -21,9 +21,9 @@ function post(path, body) {
       path,
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type':   'application/json',
         'Content-Length': Buffer.byteLength(payload),
-        'x-access-key': APP_KEY,
+        'x-access-key':   APP_KEY,
       },
     };
     const req = https.request(options, res => {
@@ -48,47 +48,46 @@ module.exports = async (req, res) => {
   try {
     const action = req.query.action || 'summary';
 
-    if (action === 'summary') {
-      const now = Date.now();
-      const params = {
-        appkey: APP_KEY,
-        token:  TOKEN,
-        lang:   'pt_BR',
-        time:   String(now),
+    const nonce     = crypto.randomBytes(8).toString('hex');
+    const timestamp = String(Date.now());
+
+    const baseParams = {
+      appkey:    APP_KEY,
+      nonce,
+      timestamp,
+      token:     TOKEN,
+    };
+
+    if (action === 'summary' || action === 'plants') {
+      const pageNum  = 1;
+      const pageSize = 50;
+
+      const allParams = {
+        ...baseParams,
+        order:    '0',
+        pageNum:  String(pageNum),
+        pageSize: String(pageSize),
+        token:    TOKEN,
       };
-      params.sign = sign(params, APP_SECRET);
 
-      const data = await post('/openapi/getPsList', {
-        ...params,
-        page_size: 100,
-        page_no:   1,
-      });
+      // Assina apenas os params base (ordem alfabética)
+      const signParams = {
+        appkey:    APP_KEY,
+        nonce,
+        timestamp,
+        token:     TOKEN,
+      };
+      allParams.sign = buildSign(signParams, APP_SECRET);
 
-      if (!data || data.result_code !== '1') {
+      const data = await httpsPost('/pro/getPlanListPro', allParams);
+
+      if (!data || data.success !== true) {
         return res.status(502).json({
           success: false,
-          error: data?.result_msg || 'SolPlanet API error',
+          error: data?.detail || 'SolPlanet API error',
+          raw: data,
         });
       }
 
-      const plants = (data.result_data?.pageList || []).map(p => ({
-        id:         String(p.ps_id),
-        name:       p.ps_name,
-        address:    p.address || '',
-        powerKw:    parseFloat(p.designed_capacity) || 0,
-        status:     p.ps_status === 1 ? 'normal' : p.ps_status === 2 ? 'warning' : 'error',
-        etodayKwh:  parseFloat(p.today_energy) || 0,
-        etotalKwh:  parseFloat(p.total_energy)  || 0,
-        lastUpdate: p.last_update_time || '',
-      }));
-
-      return res.status(200).json({ success: true, plants });
-    }
-
-    return res.status(400).json({ success: false, error: 'Unknown action' });
-
-  } catch (err) {
-    console.error('[api/solplanet]', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-};
+      const plants = (data.data || []).map(p => ({
+        id:         String(p.id),
