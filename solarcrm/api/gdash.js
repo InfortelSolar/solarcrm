@@ -39,14 +39,11 @@ async function solisRequest(path, body = {}) {
 }
 
 function normalizeSolisPlant(p) {
-  // Campo correto é 'state': 1=online, 2=offline/alarme, 3=offline
-  // alarmCount > 0 indica alarme real; caso contrário é offline
+  // state: 1=online, qualquer outra coisa=offline
+  // alarmCount indica alarmes ativos mas não muda o status principal
   const rawState = String(p.state ?? '3');
   const alarmCount = parseInt(p.alarmCount || 0);
-  let status;
-  if (rawState === '1')                          status = 'OK';
-  else if (rawState === '2' && alarmCount > 0)   status = 'ALARMING';
-  else                                           status = 'OFFLINE';
+  const status = rawState === '1' ? 'OK' : 'OFFLINE';
 
   return {
     id:            String(p.id),
