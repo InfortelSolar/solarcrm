@@ -1,6 +1,5 @@
 /**
  * js/solplanet.js — Integração SolPlanet para o SolarCRM
- * Segue o mesmo padrão do js/gdash.js (Solis)
  */
 
 const SolPlanet = (() => {
@@ -54,6 +53,7 @@ const SolPlanet = (() => {
       performance: perf,
       relatoriosEnviados: [],
       fonte: 'solplanet',
+      updated_at: p.lastUpdate || null,
     };
   }
 
@@ -76,11 +76,13 @@ const SolPlanet = (() => {
   }
 
   function plantToAlerta(p) {
-    const tipo = p.status === 'error' ? 'err' : 'warn';
+    const isAlarme = p.status === 'error';
+    const tipo = isAlarme ? 'err' : 'warn';
+    const tipoAlerta = isAlarme ? 'alarme' : 'offline';
     return {
-      id: p.id, tipo,
-      icon: tipo === 'err' ? 'ti-alert-circle' : 'ti-alert-triangle',
-      titulo: `${p.name}: ${p.status === 'error' ? 'Alarme ativo' : 'Sistema offline'}`,
+      id: p.id, tipo, tipoAlerta,
+      icon: isAlarme ? 'ti-alert-circle' : 'ti-wifi-off',
+      titulo: `${p.name}: ${isAlarme ? 'Alarme ativo no inversor' : 'Sistema offline'}`,
       detalhe: `SolPlanet · ${p.powerKw} kWp · ${p.lastUpdate || ''}`,
       acao: 'Diagnosticar',
     };
