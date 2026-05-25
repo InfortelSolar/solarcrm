@@ -728,6 +728,47 @@ const Pages = {
 
   config(cfg = {}) {
     const on = (val) => val === false ? 'off' : '';
+
+    // Conta plantas por fabricante a partir do DB
+    const solisPlants    = DB.clientes.filter(c => (c.inversor||'').toLowerCase().includes('solis') || (c.inversor||'') === '—' || (c.inversor||'').toLowerCase() === 'solis').length;
+    const solplanetCount = DB.clientes.filter(c => (c.inversor||'').toLowerCase().includes('solplanet')).length;
+    const froniusCount   = DB.clientes.filter(c => (c.inversor||'').toLowerCase().includes('fronius')).length;
+    const solisOnline    = DB.inversores.filter(i => i.api === 'Solis Cloud' && i.status === 'ok').length;
+    const spOnline       = DB.inversores.filter(i => i.api === 'SolPlanet Cloud' && i.status === 'ok').length;
+    const frOnline       = DB.inversores.filter(i => i.api === 'Fronius Solar.web' && i.status === 'ok').length;
+    const now            = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    // Card de integração ativa
+    const cardAtivo = (nome, sigla, cor, plantas, online, url, descricao) => `
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);">
+        <div style="width:40px;height:40px;border-radius:10px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${sigla}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;">${nome}</div>
+          <div style="font-size:11px;color:var(--text-secondary);">${url} · ${descricao}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-bottom:3px;">
+            <span style="width:7px;height:7px;background:#1D9E75;border-radius:50%;display:inline-block;"></span>
+            <span style="font-size:12px;font-weight:600;color:#1D9E75;">Ativo</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-secondary);">${plantas} plantas · ${online} online · sync ${now}</div>
+        </div>
+      </div>`;
+
+    // Card de integração pendente
+    const cardPendente = (nome, sigla, cor, plantas, motivo) => `
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);">
+        <div style="width:40px;height:40px;border-radius:10px;background:#F3F4F6;color:#9CA3AF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${sigla}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;color:#6B7280;">${nome}</div>
+          <div style="font-size:11px;color:var(--text-secondary);">${motivo}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <span style="background:#FFF3CD;color:#856404;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;">⏳ Pendente</span>
+          <div style="font-size:11px;color:var(--text-secondary);margin-top:3px;">${plantas} plantas</div>
+        </div>
+      </div>`;
+
     return `
     <div class="grid-2">
       <div class="card">
@@ -739,15 +780,52 @@ const Pages = {
         <div class="form-group mt-8"><label>E-mail remetente</label><input type="email" value="${cfg.emailRemetente || 'relatorios@suaempresa.com.br'}" /></div>
         <div class="form-group"><label>Nome do remetente</label><input type="text" placeholder="Infortel Solar — SolarCRM" value="${cfg.nomeRemetente || 'Infortel Solar — SolarCRM'}" /></div>
       </div>
+
       <div class="card">
-        <div class="card-hdr"><div class="card-title">Integrações de inversores</div></div>
-        <div class="config-row"><div><div class="config-label">GDASH API</div><div class="config-sub">public-api.gdash.io · Ativo</div></div><button class="toggle" aria-label="Toggle GDASH"></button></div>
-        <div class="config-row"><div><div class="config-label">Growatt API</div><div class="config-sub">server.growatt.com · Ativo</div></div><button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle Growatt"></button></div>
-        <div class="config-row"><div><div class="config-label">Fronius Solar API</div><div class="config-sub">api.solarweb.com · Ativo</div></div><button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle Fronius"></button></div>
-        <div class="config-row"><div><div class="config-label">Huawei FusionSolar</div><div class="config-sub">Não configurado</div></div><button class="toggle off" onclick="this.classList.toggle('off')" aria-label="Toggle Huawei"></button></div>
-        <button class="btn btn-teal mt-8" onclick="App.toast('Abrindo guia de integração Huawei...')"><i class="ti ti-plug"></i> Configurar Huawei</button>
+        <div class="card-hdr">
+          <div class="card-title">Integrações de inversores</div>
+          <div class="card-meta">${DB.clientes.length} plantas · Sync às ${now}</div>
+        </div>
+        <div style="padding:0 16px;">
+          ${cardAtivo('Solis Cloud', 'SOL', '#1D9E75', DB.inversores.filter(i=>i.api==='Solis Cloud').length, solisOnline, 'soliscloud.com', 'API direta')}
+          ${cardAtivo('SolPlanet', 'SP', '#3730A3', DB.inversores.filter(i=>i.api==='SolPlanet Cloud').length, spOnline, 'solplanet.net', 'Alibaba Cloud')}
+          ${cardAtivo('Fronius Solar.web', 'FRO', '#1565C0', DB.inversores.filter(i=>i.api==='Fronius Solar.web').length, frOnline, 'swqapi.solarweb.com', 'JWT Auth')}
+          ${cardPendente('Growatt', 'GRO', '#EF9F27', 39, 'Aguardando token de integrador')}
+          ${cardPendente('Sofar / SOLARMAN', 'SFR', '#8B5CF6', 258, 'Aguardando credenciais API')}
+          ${cardPendente('GoodWe', 'GW', '#0EA5E9', 46, 'Aguardando documentação')}
+          ${cardPendente('Kehua', 'KH', '#6B7280', 1, 'Aguardando credenciais')}
+          ${cardPendente('Renac', 'RNC', '#6B7280', 2, 'Aguardando credenciais')}
+        </div>
       </div>
     </div>
+
+    <!-- Resumo do sistema -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">Resumo do sistema</div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;border-top:1px solid var(--border);">
+        <div style="padding:16px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font-size:24px;font-weight:700;color:#1D9E75;">${DB.clientes.length}</div>
+          <div style="font-size:11px;color:var(--text-secondary);">Plantas monitoradas</div>
+        </div>
+        <div style="padding:16px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font-size:24px;font-weight:700;color:#3B82F6;">${DB.inversores.filter(i=>i.status==='ok').length}</div>
+          <div style="font-size:11px;color:var(--text-secondary);">Online agora</div>
+        </div>
+        <div style="padding:16px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font-size:24px;font-weight:700;color:#EF9F27;">${DB.alertas.length}</div>
+          <div style="font-size:11px;color:var(--text-secondary);">Alertas ativos</div>
+        </div>
+        <div style="padding:16px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font-size:24px;font-weight:700;">3</div>
+          <div style="font-size:11px;color:var(--text-secondary);">APIs integradas</div>
+        </div>
+        <div style="padding:16px;text-align:center;">
+          <div style="font-size:24px;font-weight:700;color:#8B5CF6;">5</div>
+          <div style="font-size:11px;color:var(--text-secondary);">APIs pendentes</div>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-hdr"><div class="card-title">Alertas automáticos</div></div>
       <div class="config-row"><div><div class="config-label">Inversor offline por mais de 2h</div><div class="config-sub">Notifica gestor e cliente por e-mail</div></div><button class="toggle ${on(cfg.alertaOffline)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta inversor"></button></div>
