@@ -326,7 +326,7 @@ const App = {
     document.getElementById('modal-relatorio').classList.add('open');
   },
 
-  customizarTemplate() { this.toast('Personalize em css/style.css'); },
+  customizarTemplate() { EditorRelatorio.abrir(); },
 
   diagnosticarAlerta(id) {
     Pages.abrirDiagnostico(id);
