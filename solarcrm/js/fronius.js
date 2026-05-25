@@ -4,12 +4,13 @@
 const Fronius = (() => {
 
   function plantToCliente(p) {
-    const st = p.error ? 'warn' : 'ok';
+    const isAlarme = (p.status || '').toLowerCase() === 'error';
+    const st = p.error ? 'warn' : isAlarme ? 'err' : 'ok';
     const initials = p.name.split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase();
     const bgMap  = { ok: '#E1F5EE', warn: '#FAEEDA', err: '#FCEBEB' };
     const corMap = { ok: '#0F6E56', warn: '#854F0B', err: '#A32D2D' };
-    const power      = parseFloat(p.peakPower_kWp) || 0;
-    const geracaoHoje = parseFloat(p.eToday_kWh)   || 0;
+    const power       = parseFloat(p.peakPower_kWp) || 0;
+    const geracaoHoje = parseFloat(p.eToday_kWh)    || 0;
     const meta        = Math.round(power * 110);
     const perf        = meta > 0 ? Math.min(100, Math.round((geracaoHoje / meta) * 100)) : 0;
 
@@ -26,16 +27,18 @@ const Fronius = (() => {
       status: st,
       statusLabel: st === 'err' ? 'Crítico' : st === 'warn' ? 'Offline' : 'Normal',
       geracaoHoje,
-      geracaoMes: geracaoHoje, // aggdata diário; mês seria outro endpoint
+      geracaoMes: geracaoHoje,
       metaMes: meta,
       hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
       performance: perf,
       relatoriosEnviados: [],
+      updated_at: p.lastImport || null,
     };
   }
 
   function plantToInversor(p) {
-    const st = p.error ? 'warn' : 'ok';
+    const isAlarme = (p.status || '').toLowerCase() === 'error';
+    const st = p.error ? 'warn' : isAlarme ? 'err' : 'ok';
     return {
       id: p.id,
       sigla: 'FRO',
@@ -45,7 +48,7 @@ const Fronius = (() => {
       serial: p.id.slice(0,8).toUpperCase(),
       api: 'Fronius Solar.web',
       status: st,
-      statusLabel: st === 'ok' ? 'Online' : 'Offline',
+      statusLabel: st === 'ok' ? 'Online' : st === 'err' ? 'Alarme' : 'Offline',
       geracaoHoje: parseFloat(p.eToday_kWh) || 0,
       temp: null,
       potencia: parseFloat(p.powerNow_W / 1000) || 0,
@@ -53,10 +56,13 @@ const Fronius = (() => {
   }
 
   function plantToAlerta(p) {
+    const isAlarme = (p.status || '').toLowerCase() === 'error';
+    const tipo = isAlarme ? 'err' : 'warn';
+    const tipoAlerta = isAlarme ? 'alarme' : 'offline';
     return {
-      id: p.id, tipo: 'warn',
-      icon: 'ti-alert-triangle',
-      titulo: `${p.name}: Fronius offline ou com erro`,
+      id: p.id, tipo, tipoAlerta,
+      icon: isAlarme ? 'ti-alert-circle' : 'ti-wifi-off',
+      titulo: `${p.name}: ${isAlarme ? 'Alarme ativo no inversor' : 'Sistema offline'}`,
       detalhe: p.error || 'Sem dados de geração',
       acao: 'Diagnosticar',
     };
@@ -69,16 +75,14 @@ const Fronius = (() => {
       const data = await res.json();
       const plants = data.plants || [];
 
-      const clientes  = plants.map(plantToCliente);
+      const clientes   = plants.map(plantToCliente);
       const inversores = plants.map(plantToInversor);
-      const alertas   = plants.filter(p => p.error).map(plantToAlerta);
+      const alertas    = plants.filter(p => p.error || (p.status || '').toLowerCase() !== 'running').map(plantToAlerta);
 
-      // Acumula sobre o que Solis/SolPlanet já carregaram
       DB.clientes   = [...(DB.clientes   || []), ...clientes];
       DB.inversores = [...(DB.inversores || []), ...inversores];
       DB.alertas    = [...(DB.alertas    || []), ...alertas];
 
-      // Soma KPIs
       const totalHoje = plants.reduce((s, p) => s + (parseFloat(p.eToday_kWh) || 0), 0);
       DB.dashKpis.clientesAtivos = (DB.dashKpis.clientesAtivos || 0) + plants.length;
       DB.dashKpis.alertasAtivos  = (DB.dashKpis.alertasAtivos  || 0) + alertas.length;
@@ -93,7 +97,6 @@ const Fronius = (() => {
 
     } catch (err) {
       console.warn('[Fronius] Falha ao carregar:', err.message);
-      // Não trava o app
     }
   }
 
