@@ -3,7 +3,7 @@
 //  Token: GROWATT_TOKEN | Usuário: GROWATT_USER
 // ============================================================
 
-const SERVER = 'https://server.pvbutler.com';
+const SERVER = 'https://openapi.growatt.com';
 
 function normalizePlant(p) {
   const rawStatus = String(p.status ?? '-1');
