@@ -74,6 +74,7 @@ const GDash = (() => {
       hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
       performance: perf,
       relatoriosEnviados: [],
+      updated_at: p.updated_at,
     };
   }
 
@@ -97,11 +98,13 @@ const GDash = (() => {
 
   function plantToAlerta(p) {
     const status = (p.status || '').toUpperCase();
-    const tipo = status === 'ALARMING' ? 'err' : 'warn';
+    const isAlarme = status === 'ALARMING';
+    const tipo = isAlarme ? 'err' : 'warn';
+    const tipoAlerta = isAlarme ? 'alarme' : 'offline';
     return {
-      id: p.id, tipo,
-      icon: tipo === 'err' ? 'ti-alert-circle' : 'ti-alert-triangle',
-      titulo: `${p.name}: ${status === 'ALARMING' ? 'Alarme ativo' : 'Sistema offline'}`,
+      id: p.id, tipo, tipoAlerta,
+      icon: isAlarme ? 'ti-alert-circle' : 'ti-wifi-off',
+      titulo: `${p.name}: ${isAlarme ? 'Alarme ativo no inversor' : 'Sistema offline'}`,
       detalhe: `${p.manufacturer} · ${p.power} kWp · ${new Date(p.updated_at).toLocaleString('pt-BR')}`,
       acao: 'Diagnosticar',
     };
@@ -146,7 +149,6 @@ const GDash = (() => {
       });
 
     } catch (err) {
-      // Solis falhou — não trava o dashboard
       console.warn('[Solis] Falha ao carregar:', err.message);
       DB.clientes   = DB.clientes   || [];
       DB.inversores = DB.inversores || [];
