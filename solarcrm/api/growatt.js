@@ -42,12 +42,12 @@ async function getSession() {
       'Origin': BASE,
     },
     body: body.toString(),
-    redirect: 'manual',
+    redirect: 'follow',
   });
 
   // Extrai todos os cookies do response
   const rawCookies = res.headers.getSetCookie?.() || [];
-  const cookieStr = rawCookies
+  let cookieStr = rawCookies
     .map(c => c.split(';')[0])
     .join('; ');
 
@@ -55,6 +55,42 @@ async function getSession() {
     const text = await res.text();
     throw new Error(`Login falhou — sem JSESSIONID. Status: ${res.status}. Body: ${text.slice(0, 200)}`);
   }
+
+  // Busca assToken via endpoint dedicado
+  try {
+    const tokenRes = await fetch(`${BASE}/login/token`, {
+      method: 'GET',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Referer': `${BASE}/index`,
+        'Cookie': cookieStr,
+      },
+    });
+    const tokenCookies = tokenRes.headers.getSetCookie?.() || [];
+    const tokenStr = tokenCookies.map(c => c.split(';')[0]).join('; ');
+    if (tokenStr) cookieStr = cookieStr + '; ' + tokenStr;
+
+    // Tenta extrair assToken do body
+    const tokenJson = await tokenRes.json().catch(() => null);
+    if (tokenJson?.assToken) {
+      cookieStr = cookieStr + `; assToken=${tokenJson.assToken}`;
+    }
+  } catch(_) {}
+
+  // Busca index para obter assToken do cookie
+  try {
+    const indexRes = await fetch(`${BASE}/index`, {
+      method: 'GET',
+      headers: {
+        'Referer': `${BASE}/login`,
+        'Cookie': cookieStr,
+      },
+      redirect: 'follow',
+    });
+    const indexCookies = indexRes.headers.getSetCookie?.() || [];
+    const indexStr = indexCookies.map(c => c.split(';')[0]).join('; ');
+    if (indexStr) cookieStr = cookieStr + '; ' + indexStr;
+  } catch(_) {}
 
   _session = { cookie: cookieStr, expiresAt: now + 25 * 60 * 1000 };
   return cookieStr;
