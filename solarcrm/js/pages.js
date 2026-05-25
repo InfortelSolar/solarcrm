@@ -377,6 +377,13 @@ const Pages = {
     const a = DB.alertas.find(x => x.id === alertaId);
     if (!a) return;
     const cliente = DB.clientes.find(c => a.titulo.startsWith(c.nome));
+    Diagnostico.renderModal(a, cliente);
+  },
+
+  _abrirDiagnostico_old(alertaId) {
+    const a = DB.alertas.find(x => x.id === alertaId);
+    if (!a) return;
+    const cliente = DB.clientes.find(c => a.titulo.startsWith(c.nome));
 
     const old = document.getElementById('modal-diagnostico');
     if (old) old.remove();
