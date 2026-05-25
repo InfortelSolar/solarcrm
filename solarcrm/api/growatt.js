@@ -27,7 +27,7 @@ async function getSession() {
   if (!user || !pass) throw new Error('GROWATT_USER ou GROWATT_PASS não configurados');
 
   const body = new URLSearchParams({
-    account: user,
+    userName: user,
     password: md5(pass),
   });
 
