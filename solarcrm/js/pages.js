@@ -42,10 +42,13 @@ const Pages = {
           <span style="width:7px;height:7px;background:#E24B4A;border-radius:50%;display:inline-block;"></span>
           ${offline} offline / alarme
         </span>
-        <span style="font-size:12px;color:var(--text-secondary);">Atualizado às ${now}</span>
+        <span style="font-size:12px;color:var(--text-secondary);">
+          Atualizado às <span id="last-update-time">${now}</span>
+          <span style="display:inline-block;width:7px;height:7px;background:#1D9E75;border-radius:50%;margin-left:4px;animation:pulse 2s infinite;" title="Auto-refresh ativo (5 min)"></span>
+        </span>
       </div>
       <button class="btn btn-sm" onclick="App.recarregarDados()" style="display:flex;align-items:center;gap:5px;">
-        <i class="ti ti-refresh"></i> Atualizar dados
+        <i class="ti ti-refresh"></i> Atualizar agora
       </button>
     </div>
 
