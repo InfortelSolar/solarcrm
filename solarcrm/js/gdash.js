@@ -75,6 +75,9 @@ const GDash = (() => {
       performance: perf,
       relatoriosEnviados: [],
       updated_at: p.updated_at,
+      alarmCount: p.alarmCount || 0,
+      inverterOnlineCount: p.inverterOnlineCount || 0,
+      inverterCount: p.inverterCount || 0,
     };
   }
 
@@ -98,15 +101,28 @@ const GDash = (() => {
 
   function plantToAlerta(p) {
     const status = (p.status || '').toUpperCase();
-    const isAlarme = status === 'ALARMING';
-    const tipo = isAlarme ? 'err' : 'warn';
-    const tipoAlerta = isAlarme ? 'alarme' : 'offline';
+    const alarmCount = parseInt(p.alarmCount || 0);
+    const inverterOnlineCount = parseInt(p.inverterOnlineCount || 0);
+
+    // Lógica refinada:
+    // - ALARMING + alarmCount > 0 → alarme real no inversor
+    // - ALARMING + alarmCount = 0 + inverterOnlineCount = 0 → offline (sem comunicação)
+    // - OFFLINE → sempre offline
+    const isAlarmeReal = status === 'ALARMING' && alarmCount > 0;
+    const isOffline = status === 'OFFLINE' || (status === 'ALARMING' && alarmCount === 0 && inverterOnlineCount === 0);
+
+    const tipo = isAlarmeReal ? 'err' : 'warn';
+    const tipoAlerta = isAlarmeReal ? 'alarme' : 'offline';
+
     return {
       id: p.id, tipo, tipoAlerta,
-      icon: isAlarme ? 'ti-alert-circle' : 'ti-wifi-off',
-      titulo: `${p.name}: ${isAlarme ? 'Alarme ativo no inversor' : 'Sistema offline'}`,
+      icon: isAlarmeReal ? 'ti-alert-circle' : 'ti-wifi-off',
+      titulo: `${p.name}: ${isAlarmeReal ? 'Alarme ativo no inversor' : 'Sistema offline'}`,
       detalhe: `${p.manufacturer} · ${p.power} kWp · ${new Date(p.updated_at).toLocaleString('pt-BR')}`,
       acao: 'Diagnosticar',
+      alarmCount,
+      inverterOnlineCount,
+      inverterCount: parseInt(p.inverterCount || 0),
     };
   }
 
@@ -143,6 +159,7 @@ const GDash = (() => {
         total:    m.total,
         online:   m.online,
         offline:  m.offline,
+        alarming: m.alarming,
         alertas:  m.alerts.length,
         energyDay:   m.totalEnergyDay.toFixed(1) + ' kWh',
         energyMonth: m.totalEnergyMonth.toFixed(1) + ' kWh',
