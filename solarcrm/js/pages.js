@@ -1,6 +1,6 @@
 // ============================================================
 //  SolarCRM — Construtores de páginas (HTML strings)
-//  v4.0 — Modal diagnóstico alertas + perfil inversores
+//  v5.0 — Histórico de geração real por planta
 // ============================================================
 
 const Pages = {
@@ -308,14 +308,39 @@ const Pages = {
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-hdr">
-          <div class="card-title">Histórico de geração — 12 meses</div>
-          <div class="card-meta">kWh / mês</div>
+      <!-- ══ HISTÓRICO DE GERAÇÃO ══ -->
+      <div class="card" id="hist-container">
+        <div class="card-hdr" style="flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="card-title">Histórico de geração</div>
+            <span id="hist-simulado-badge" style="display:none;background:#FFF3CD;color:#856404;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;">Estimado</span>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm hist-periodo active" data-periodo="7d" onclick="Pages._setPeriodo('${c.id}', '7d', this)">7 dias</button>
+            <button class="btn btn-sm hist-periodo" data-periodo="30d" onclick="Pages._setPeriodo('${c.id}', '30d', this)">30 dias</button>
+            <button class="btn btn-sm hist-periodo" data-periodo="12m" onclick="Pages._setPeriodo('${c.id}', '12m', this)">12 meses</button>
+          </div>
         </div>
-        <div class="chart-wrap">
+
+        <!-- Stats resumo -->
+        <div id="hist-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--border);border-top:1px solid var(--border);">
+          <div class="hist-stat" style="padding:10px 16px;border-right:1px solid var(--border);">
+            <span class="hist-stat-lbl" style="font-size:11px;color:var(--text-secondary);display:block;">Carregando...</span>
+          </div>
+        </div>
+
+        <!-- Loading overlay -->
+        <div id="hist-loading" style="display:none;justify-content:center;align-items:center;padding:20px;gap:8px;font-size:13px;color:var(--text-secondary);">
+          <i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> Buscando dados...
+        </div>
+
+        <!-- Gráfico -->
+        <div class="chart-wrap" style="padding:16px;">
           <canvas id="chart-perfil-hist"></canvas>
         </div>
+
+        <!-- Tabela -->
+        <div id="hist-tabela" style="border-top:1px solid var(--border);max-height:280px;overflow-y:auto;"></div>
       </div>
 
       <div class="card">
@@ -328,7 +353,16 @@ const Pages = {
         ${histLog || '<div class="text-muted" style="font-size:12px;padding:12px;">Nenhum relatório enviado ainda.</div>'}
       </div>`;
 
-    setTimeout(() => Charts.renderPerfil(c), 50);
+    // Carrega histórico inicial (7 dias)
+    setTimeout(() => Historico.renderizar(c, '7d'), 50);
+  },
+
+  _setPeriodo(clienteId, periodo, btn) {
+    // Atualiza botões ativos
+    document.querySelectorAll('.hist-periodo').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const c = DB.getCliente(clienteId);
+    if (c) Historico.renderizar(c, periodo);
   },
 
   closePerfil() {
@@ -344,7 +378,6 @@ const Pages = {
     if (!a) return;
     const cliente = DB.clientes.find(c => a.titulo.startsWith(c.nome));
 
-    // Remove modal anterior se existir
     const old = document.getElementById('modal-diagnostico');
     if (old) old.remove();
 
@@ -365,15 +398,11 @@ const Pages = {
             <i class="ti ti-x"></i>
           </button>
         </div>
-
-        <!-- Informações da planta -->
         <div style="padding:16px 20px;background:var(--bg-secondary);border-bottom:1px solid var(--border);">
           <div style="font-size:15px;font-weight:600;margin-bottom:4px;">${a.titulo.split(':')[0]}</div>
           <div style="font-size:12px;color:var(--text-secondary);">${a.detalhe}</div>
         </div>
-
         <div style="padding:16px 20px;">
-          <!-- Status -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
             <div style="background:var(--bg-secondary);padding:12px;border-radius:8px;">
               <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">STATUS</div>
@@ -384,9 +413,7 @@ const Pages = {
               <div style="font-size:13px;font-weight:600;">${a.detalhe.split('· ').pop()}</div>
             </div>
           </div>
-
           ${cliente ? `
-          <!-- Dados do cliente -->
           <div style="margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;">
             <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Dados do cliente</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
@@ -396,43 +423,20 @@ const Pages = {
               <div><span style="color:var(--text-secondary);">Fabricante:</span> ${cliente.inversor}</div>
             </div>
           </div>` : ''}
-
-          <!-- Checklist diagnóstico -->
           <div style="margin-bottom:16px;">
             <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Checklist de diagnóstico</div>
             <div style="display:flex;flex-direction:column;gap:6px;">
-              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" style="width:14px;height:14px;"> Verificar conexão de rede do inversor
-              </label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" style="width:14px;height:14px;"> Checar disjuntores e fusíveis
-              </label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" style="width:14px;height:14px;"> Verificar display do inversor (erros/códigos)
-              </label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" style="width:14px;height:14px;"> Contatar cliente para confirmação no local
-              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" style="width:14px;height:14px;"> Verificar conexão de rede do inversor</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" style="width:14px;height:14px;"> Checar disjuntores e fusíveis</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" style="width:14px;height:14px;"> Verificar display do inversor (erros/códigos)</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" style="width:14px;height:14px;"> Contatar cliente para confirmação no local</label>
             </div>
           </div>
-
-          <!-- Ações -->
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            ${cliente?.whats ? `
-            <a href="https://wa.me/55${cliente.whats.replace(/\D/g,'')}" target="_blank" class="btn btn-sm" style="background:#25D366;color:white;border-color:#25D366;">
-              <i class="ti ti-brand-whatsapp"></i> WhatsApp
-            </a>` : ''}
-            ${cliente?.email ? `
-            <a href="mailto:${cliente.email}?subject=Alerta: ${encodeURIComponent(a.titulo.split(':')[0])}&body=Identificamos um problema na sua usina solar. Por favor, verifique." class="btn btn-sm">
-              <i class="ti ti-mail"></i> Enviar e-mail
-            </a>` : ''}
-            ${cliente ? `
-            <button class="btn btn-sm" onclick="document.getElementById('modal-diagnostico').remove(); Pages.openPerfil('${cliente.id}'); App.navTo('clientes');">
-              <i class="ti ti-user"></i> Ver perfil
-            </button>` : ''}
-            <button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;" onclick="App.resolverAlerta('${a.id}'); document.getElementById('modal-diagnostico').remove();">
-              <i class="ti ti-check"></i> Marcar resolvido
-            </button>
+            ${cliente?.whats ? `<a href="https://wa.me/55${cliente.whats.replace(/\D/g,'')}" target="_blank" class="btn btn-sm" style="background:#25D366;color:white;border-color:#25D366;"><i class="ti ti-brand-whatsapp"></i> WhatsApp</a>` : ''}
+            ${cliente?.email ? `<a href="mailto:${cliente.email}?subject=Alerta: ${encodeURIComponent(a.titulo.split(':')[0])}&body=Identificamos um problema na sua usina solar. Por favor, verifique." class="btn btn-sm"><i class="ti ti-mail"></i> Enviar e-mail</a>` : ''}
+            ${cliente ? `<button class="btn btn-sm" onclick="document.getElementById('modal-diagnostico').remove(); Pages.openPerfil('${cliente.id}'); App.navTo('clientes');"><i class="ti ti-user"></i> Ver perfil</button>` : ''}
+            <button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;" onclick="App.resolverAlerta('${a.id}'); document.getElementById('modal-diagnostico').remove();"><i class="ti ti-check"></i> Marcar resolvido</button>
           </div>
         </div>
       </div>`;
@@ -463,13 +467,9 @@ const Pages = {
             <div style="background:${inv.bgCol};color:${inv.txtCol};width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${inv.sigla}</div>
             ${inv.modelo}
           </h2>
-          <button class="btn-icon" onclick="document.getElementById('modal-inversor').remove()">
-            <i class="ti ti-x"></i>
-          </button>
+          <button class="btn-icon" onclick="document.getElementById('modal-inversor').remove()"><i class="ti ti-x"></i></button>
         </div>
-
         <div style="padding:16px 20px;">
-          <!-- Status + métricas -->
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
             <div style="background:var(--bg-secondary);padding:12px;border-radius:8px;text-align:center;">
               <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">STATUS</div>
@@ -484,8 +484,6 @@ const Pages = {
               <div style="font-size:16px;font-weight:700;">${inv.temp ? inv.temp + '°C' : '—'}</div>
             </div>
           </div>
-
-          <!-- Detalhes técnicos -->
           <div style="margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;">
             <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Detalhes técnicos</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
@@ -495,8 +493,6 @@ const Pages = {
               <div><span style="color:var(--text-secondary);">Cliente:</span> <strong>${inv.cliente}</strong></div>
             </div>
           </div>
-
-          <!-- Cliente vinculado -->
           ${cliente ? `
           <div style="margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;">
             <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Cliente vinculado</div>
@@ -508,20 +504,10 @@ const Pages = {
               </div>
             </div>
           </div>` : ''}
-
-          <!-- Ações -->
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            ${cliente?.whats ? `
-            <a href="https://wa.me/55${cliente.whats.replace(/\D/g,'')}" target="_blank" class="btn btn-sm" style="background:#25D366;color:white;border-color:#25D366;">
-              <i class="ti ti-brand-whatsapp"></i> WhatsApp
-            </a>` : ''}
-            ${cliente ? `
-            <button class="btn btn-sm btn-teal" onclick="document.getElementById('modal-inversor').remove(); App.navTo('clientes'); setTimeout(()=>Pages.openPerfil('${cliente.id}'),100);">
-              <i class="ti ti-user"></i> Ver perfil do cliente
-            </button>` : ''}
-            <button class="btn btn-sm" onclick="document.getElementById('modal-inversor').remove();">
-              <i class="ti ti-x"></i> Fechar
-            </button>
+            ${cliente?.whats ? `<a href="https://wa.me/55${cliente.whats.replace(/\D/g,'')}" target="_blank" class="btn btn-sm" style="background:#25D366;color:white;border-color:#25D366;"><i class="ti ti-brand-whatsapp"></i> WhatsApp</a>` : ''}
+            ${cliente ? `<button class="btn btn-sm btn-teal" onclick="document.getElementById('modal-inversor').remove(); App.navTo('clientes'); setTimeout(()=>Pages.openPerfil('${cliente.id}'),100);"><i class="ti ti-user"></i> Ver perfil do cliente</button>` : ''}
+            <button class="btn btn-sm" onclick="document.getElementById('modal-inversor').remove();"><i class="ti ti-x"></i> Fechar</button>
           </div>
         </div>
       </div>`;
@@ -541,10 +527,7 @@ const Pages = {
       <div class="inv-card" style="cursor:pointer;" onclick="Pages.abrirPerfilInversor('${i.id}')">
         <div class="inv-logo" style="background:${i.bgCol};color:${i.txtCol};">${i.sigla}</div>
         <div class="inv-info">
-          <div class="inv-name">
-            ${i.modelo}
-            ${this.badgeStatus(i.status, i.statusLabel)}
-          </div>
+          <div class="inv-name">${i.modelo} ${this.badgeStatus(i.status, i.statusLabel)}</div>
           <div class="inv-meta">${i.cliente} · S/N: ${i.serial}</div>
         </div>
         <div class="inv-stats">
@@ -577,7 +560,6 @@ const Pages = {
         <div class="mcard-sub text-muted">${fabLabel}</div>
       </div>
     </div>
-
     <div class="card">
       <div class="card-hdr">
         <div class="card-title">Inversores monitorados</div>
@@ -585,7 +567,6 @@ const Pages = {
       </div>
       ${cards}
     </div>
-
     <div class="card">
       <div class="card-hdr"><div class="card-title">Adicionar novo inversor</div></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
@@ -608,16 +589,11 @@ const Pages = {
           </select>
         </div>
       </div>
-      <button class="btn btn-teal" onclick="App.addInversor()">
-        <i class="ti ti-plug"></i> Conectar inversor
-      </button>
+      <button class="btn btn-teal" onclick="App.addInversor()"><i class="ti ti-plug"></i> Conectar inversor</button>
     </div>
-
     <div class="card">
       <div class="card-hdr"><div class="card-title">Geração hoje por inversor online</div></div>
-      <div class="chart-wrap chart-wrap-tall">
-        <canvas id="chart-inv-geracao"></canvas>
-      </div>
+      <div class="chart-wrap chart-wrap-tall"><canvas id="chart-inv-geracao"></canvas></div>
     </div>`;
   },
 
@@ -625,7 +601,6 @@ const Pages = {
   alertas() {
     const criticos = DB.alertas.filter(a => a.tipo === 'err').length;
     const atencao  = DB.alertas.filter(a => a.tipo === 'warn').length;
-
     const items = DB.alertas.map(a => `
       <div class="alert-item a-${a.tipo}" id="alerta-${a.id}" style="cursor:pointer;" onclick="Pages.abrirDiagnostico('${a.id}')">
         <i class="ti ${a.icon}"></i>
@@ -634,42 +609,23 @@ const Pages = {
           <div class="atime">${a.detalhe}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button class="btn btn-sm" onclick="event.stopPropagation(); Pages.abrirDiagnostico('${a.id}')">
-            Diagnosticar <i class="ti ti-arrow-right"></i>
-          </button>
-          <button class="btn btn-sm" onclick="event.stopPropagation(); App.resolverAlerta('${a.id}')" title="Marcar como resolvido">
-            <i class="ti ti-check"></i>
-          </button>
+          <button class="btn btn-sm" onclick="event.stopPropagation(); Pages.abrirDiagnostico('${a.id}')">Diagnosticar <i class="ti ti-arrow-right"></i></button>
+          <button class="btn btn-sm" onclick="event.stopPropagation(); App.resolverAlerta('${a.id}')" title="Marcar como resolvido"><i class="ti ti-check"></i></button>
         </div>
       </div>`).join('');
 
     return `
     <div class="grid-3">
-      <div class="mcard" style="border-left:3px solid #E24B4A;">
-        <div class="mcard-label">Críticos</div>
-        <div class="mcard-val err">${criticos}</div>
-        <div class="mcard-sub err">Ação imediata</div>
-      </div>
-      <div class="mcard" style="border-left:3px solid #EF9F27;">
-        <div class="mcard-label">Atenção</div>
-        <div class="mcard-val warn">${atencao}</div>
-        <div class="mcard-sub warn">Monitorar</div>
-      </div>
-      <div class="mcard" style="border-left:3px solid #1D9E75;">
-        <div class="mcard-label">Resolvidos (30d)</div>
-        <div class="mcard-val">14</div>
-        <div class="mcard-sub ok">100% resolvidos</div>
-      </div>
+      <div class="mcard" style="border-left:3px solid #E24B4A;"><div class="mcard-label">Críticos</div><div class="mcard-val err">${criticos}</div><div class="mcard-sub err">Ação imediata</div></div>
+      <div class="mcard" style="border-left:3px solid #EF9F27;"><div class="mcard-label">Atenção</div><div class="mcard-val warn">${atencao}</div><div class="mcard-sub warn">Monitorar</div></div>
+      <div class="mcard" style="border-left:3px solid #1D9E75;"><div class="mcard-label">Resolvidos (30d)</div><div class="mcard-val">14</div><div class="mcard-sub ok">100% resolvidos</div></div>
     </div>
     <div class="card">
-      <div class="card-hdr">
-        <div class="card-title">Alertas ativos</div>
-        <div class="card-meta">Clique para diagnosticar</div>
-      </div>
+      <div class="card-hdr"><div class="card-title">Alertas ativos</div><div class="card-meta">Clique para diagnosticar</div></div>
       <div style="padding:10px 16px;border-bottom:1px solid var(--border);">
         <div style="position:relative;">
           <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-secondary);font-size:14px;"></i>
-          <input type="text" id="busca-alertas" placeholder="Buscar por nome do cliente..." 
+          <input type="text" id="busca-alertas" placeholder="Buscar por nome do cliente..."
             oninput="Pages.filtrarAlertas(this.value)"
             style="width:100%;padding:8px 12px 8px 32px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg-secondary);outline:none;" />
         </div>
@@ -694,31 +650,16 @@ const Pages = {
 
     return `
     <div class="grid-3">
-      <div class="mcard" style="border-left:3px solid #1D9E75;">
-        <div class="mcard-label"><i class="ti ti-mail"></i>Clientes com e-mail</div>
-        <div class="mcard-val">${totalClientes}</div>
-        <div class="mcard-sub ok">Prontos para envio</div>
-      </div>
-      <div class="mcard" style="border-left:3px solid ${semWhats > 0 ? '#EF9F27' : '#1D9E75'};">
-        <div class="mcard-label"><i class="ti ti-brand-whatsapp"></i>Com WhatsApp</div>
-        <div class="mcard-val">${comWhats}</div>
-        <div class="mcard-sub ${semWhats > 0 ? 'warn' : 'ok'}">${semWhats > 0 ? semWhats + ' sem número' : 'Todos cadastrados'}</div>
-      </div>
-      <div class="mcard" style="border-left:3px solid #3B82F6;">
-        <div class="mcard-label"><i class="ti ti-file-type-pdf"></i>Total de plantas</div>
-        <div class="mcard-val">${totalClientes}</div>
-        <div class="mcard-sub ok">100% monitoradas</div>
-      </div>
+      <div class="mcard" style="border-left:3px solid #1D9E75;"><div class="mcard-label"><i class="ti ti-mail"></i>Clientes com e-mail</div><div class="mcard-val">${totalClientes}</div><div class="mcard-sub ok">Prontos para envio</div></div>
+      <div class="mcard" style="border-left:3px solid ${semWhats > 0 ? '#EF9F27' : '#1D9E75'};"><div class="mcard-label"><i class="ti ti-brand-whatsapp"></i>Com WhatsApp</div><div class="mcard-val">${comWhats}</div><div class="mcard-sub ${semWhats > 0 ? 'warn' : 'ok'}">${semWhats > 0 ? semWhats + ' sem número' : 'Todos cadastrados'}</div></div>
+      <div class="mcard" style="border-left:3px solid #3B82F6;"><div class="mcard-label"><i class="ti ti-file-type-pdf"></i>Total de plantas</div><div class="mcard-val">${totalClientes}</div><div class="mcard-sub ok">100% monitoradas</div></div>
     </div>
     <div class="card">
       <div class="card-hdr"><div class="card-title">Template do relatório</div><div class="card-meta">Personalização</div></div>
       <div class="report-tpl">
         <div class="report-tpl-hdr">
           <div class="report-tpl-icon"><i class="ti ti-file-description"></i></div>
-          <div style="flex:1;">
-            <div style="font-size:13px;font-weight:600;">Relatório mensal padrão</div>
-            <div style="font-size:11px;color:var(--text-secondary);">PDF + E-mail HTML + Mensagem WhatsApp</div>
-          </div>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Relatório mensal padrão</div><div style="font-size:11px;color:var(--text-secondary);">PDF + E-mail HTML + Mensagem WhatsApp</div></div>
           <span class="badge b-ok">Ativo</span>
         </div>
         <div class="channels">
@@ -743,9 +684,7 @@ const Pages = {
     </div>
     <div class="card">
       <div class="card-hdr"><div class="card-title">Histórico de envios</div></div>
-      <div class="thdr" style="grid-template-columns:2fr 1fr 1fr 1fr;">
-        <div>Relatório</div><div>Clientes</div><div>Status</div><div>Ação</div>
-      </div>
+      <div class="thdr" style="grid-template-columns:2fr 1fr 1fr 1fr;"><div>Relatório</div><div>Clientes</div><div>Status</div><div>Ação</div></div>
       ${logs || '<div class="text-muted" style="padding:12px;font-size:12px;">Nenhum relatório enviado ainda.</div>'}
       <div style="padding:12px 0 0;">
         <button class="btn btn-teal" style="width:100%;justify-content:center;" onclick="App.enviarTodosRelatorios()">
@@ -755,7 +694,6 @@ const Pages = {
     </div>`;
   },
 
-  // ---- Filtro de alertas ----
   filtrarAlertas(termo) {
     const lista = document.getElementById('alertas-list');
     if (!lista) return;
@@ -764,85 +702,40 @@ const Pages = {
       const txt = el.querySelector('.atxt')?.textContent?.toLowerCase() || '';
       el.style.display = (!t || txt.includes(t)) ? '' : 'none';
     });
-    // Mostra contador
     const visiveis = [...lista.querySelectorAll('.alert-item')].filter(el => el.style.display !== 'none').length;
     const meta = document.querySelector('.card-hdr .card-meta');
     if (meta) meta.textContent = t ? `${visiveis} resultado(s)` : 'Clique para diagnosticar';
   },
 
-  // ---- Configurações ----
   config(cfg = {}) {
     const on = (val) => val === false ? 'off' : '';
     return `
     <div class="grid-2">
       <div class="card">
         <div class="card-hdr"><div class="card-title">Envio de relatórios</div></div>
-        <div class="config-row">
-          <div><div class="config-label">Envio automático mensal</div><div class="config-sub">1º dia de cada mês</div></div>
-          <button class="toggle ${on(cfg.envioAutomatico)}" onclick="this.classList.toggle('off')" aria-label="Toggle envio automático"></button>
-        </div>
-        <div class="config-row">
-          <div><div class="config-label">E-mail (Resend)</div><div class="config-sub">Configurado e ativo</div></div>
-          <button class="toggle ${on(cfg.email)}" onclick="this.classList.toggle('off')" aria-label="Toggle email"></button>
-        </div>
-        <div class="config-row">
-          <div><div class="config-label">WhatsApp Business API</div><div class="config-sub">Evolution API no Railway</div></div>
-          <button class="toggle ${on(cfg.whatsapp)}" onclick="this.classList.toggle('off')" aria-label="Toggle WhatsApp"></button>
-        </div>
-        <div class="config-row">
-          <div><div class="config-label">PDF automático</div><div class="config-sub">Gerado para todos os clientes</div></div>
-          <button class="toggle ${on(cfg.pdf)}" onclick="this.classList.toggle('off')" aria-label="Toggle PDF"></button>
-        </div>
-        <div class="form-group mt-8">
-          <label>E-mail remetente</label>
-          <input type="email" value="${cfg.emailRemetente || 'relatorios@suaempresa.com.br'}" />
-        </div>
-        <div class="form-group">
-          <label>Nome do remetente</label>
-          <input type="text" placeholder="Infortel Solar — SolarCRM" value="${cfg.nomeRemetente || 'Infortel Solar — SolarCRM'}" />
-        </div>
+        <div class="config-row"><div><div class="config-label">Envio automático mensal</div><div class="config-sub">1º dia de cada mês</div></div><button class="toggle ${on(cfg.envioAutomatico)}" onclick="this.classList.toggle('off')" aria-label="Toggle envio automático"></button></div>
+        <div class="config-row"><div><div class="config-label">E-mail (Resend)</div><div class="config-sub">Configurado e ativo</div></div><button class="toggle ${on(cfg.email)}" onclick="this.classList.toggle('off')" aria-label="Toggle email"></button></div>
+        <div class="config-row"><div><div class="config-label">WhatsApp Business API</div><div class="config-sub">Evolution API no Railway</div></div><button class="toggle ${on(cfg.whatsapp)}" onclick="this.classList.toggle('off')" aria-label="Toggle WhatsApp"></button></div>
+        <div class="config-row"><div><div class="config-label">PDF automático</div><div class="config-sub">Gerado para todos os clientes</div></div><button class="toggle ${on(cfg.pdf)}" onclick="this.classList.toggle('off')" aria-label="Toggle PDF"></button></div>
+        <div class="form-group mt-8"><label>E-mail remetente</label><input type="email" value="${cfg.emailRemetente || 'relatorios@suaempresa.com.br'}" /></div>
+        <div class="form-group"><label>Nome do remetente</label><input type="text" placeholder="Infortel Solar — SolarCRM" value="${cfg.nomeRemetente || 'Infortel Solar — SolarCRM'}" /></div>
       </div>
       <div class="card">
         <div class="card-hdr"><div class="card-title">Integrações de inversores</div></div>
-        <div class="config-row">
-          <div><div class="config-label">GDASH API</div><div class="config-sub">public-api.gdash.io · Ativo</div></div>
-          <button class="toggle" aria-label="Toggle GDASH"></button>
-        </div>
-        <div class="config-row">
-          <div><div class="config-label">Growatt API</div><div class="config-sub">server.growatt.com · Ativo</div></div>
-          <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle Growatt"></button>
-        </div>
-        <div class="config-row">
-          <div><div class="config-label">Fronius Solar API</div><div class="config-sub">api.solarweb.com · Ativo</div></div>
-          <button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle Fronius"></button>
-        </div>
-        <div class="config-row">
-          <div><div class="config-label">Huawei FusionSolar</div><div class="config-sub">Não configurado</div></div>
-          <button class="toggle off" onclick="this.classList.toggle('off')" aria-label="Toggle Huawei"></button>
-        </div>
-        <button class="btn btn-teal mt-8" onclick="App.toast('Abrindo guia de integração Huawei...')">
-          <i class="ti ti-plug"></i> Configurar Huawei
-        </button>
+        <div class="config-row"><div><div class="config-label">GDASH API</div><div class="config-sub">public-api.gdash.io · Ativo</div></div><button class="toggle" aria-label="Toggle GDASH"></button></div>
+        <div class="config-row"><div><div class="config-label">Growatt API</div><div class="config-sub">server.growatt.com · Ativo</div></div><button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle Growatt"></button></div>
+        <div class="config-row"><div><div class="config-label">Fronius Solar API</div><div class="config-sub">api.solarweb.com · Ativo</div></div><button class="toggle" onclick="this.classList.toggle('off')" aria-label="Toggle Fronius"></button></div>
+        <div class="config-row"><div><div class="config-label">Huawei FusionSolar</div><div class="config-sub">Não configurado</div></div><button class="toggle off" onclick="this.classList.toggle('off')" aria-label="Toggle Huawei"></button></div>
+        <button class="btn btn-teal mt-8" onclick="App.toast('Abrindo guia de integração Huawei...')"><i class="ti ti-plug"></i> Configurar Huawei</button>
       </div>
     </div>
     <div class="card">
       <div class="card-hdr"><div class="card-title">Alertas automáticos</div></div>
-      <div class="config-row">
-        <div><div class="config-label">Inversor offline por mais de 2h</div><div class="config-sub">Notifica gestor e cliente por e-mail</div></div>
-        <button class="toggle ${on(cfg.alertaOffline)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta inversor"></button>
-      </div>
-      <div class="config-row">
-        <div><div class="config-label">Geração abaixo de 70% da meta</div><div class="config-sub">Notifica gestor</div></div>
-        <button class="toggle ${on(cfg.alertaGeracao)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta geração"></button>
-      </div>
-      <div class="config-row">
-        <div><div class="config-label">Queda de eficiência &gt;5% em 30 dias</div><div class="config-sub">Sugere manutenção preventiva</div></div>
-        <button class="toggle ${on(cfg.alertaEficiencia)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta eficiência"></button>
-      </div>
+      <div class="config-row"><div><div class="config-label">Inversor offline por mais de 2h</div><div class="config-sub">Notifica gestor e cliente por e-mail</div></div><button class="toggle ${on(cfg.alertaOffline)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta inversor"></button></div>
+      <div class="config-row"><div><div class="config-label">Geração abaixo de 70% da meta</div><div class="config-sub">Notifica gestor</div></div><button class="toggle ${on(cfg.alertaGeracao)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta geração"></button></div>
+      <div class="config-row"><div><div class="config-label">Queda de eficiência >5% em 30 dias</div><div class="config-sub">Sugere manutenção preventiva</div></div><button class="toggle ${on(cfg.alertaEficiencia)}" onclick="this.classList.toggle('off')" aria-label="Toggle alerta eficiência"></button></div>
       <div style="text-align:right;margin-top:12px;">
-        <button class="btn btn-teal" onclick="App.salvarConfig()">
-          <i class="ti ti-device-floppy"></i> Salvar configurações
-        </button>
+        <button class="btn btn-teal" onclick="App.salvarConfig()"><i class="ti ti-device-floppy"></i> Salvar configurações</button>
       </div>
     </div>`;
   },
