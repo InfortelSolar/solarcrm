@@ -39,15 +39,12 @@ async function solisRequest(path, body = {}) {
 }
 
 function normalizeSolisPlant(p) {
-  // status: 1=normal/online, 2=alarm, 3=offline
-  // stationStatus pode ser o campo correto dependendo da versão da API
-  const rawStatus = String(p.stationStatus ?? p.status ?? '3');
+  // Campo correto é 'state': 1=online, 2=alarme, 3=offline
+  const rawState = String(p.state ?? '3');
   let status;
-  if (rawStatus === '1')      status = 'OK';
-  else if (rawStatus === '2') status = 'ALARMING';
-  else if (rawStatus === '3') status = 'OFFLINE';
-  else if (rawStatus === '0') status = 'OFFLINE';
-  else                        status = 'OFFLINE';
+  if (rawState === '1')      status = 'OK';
+  else if (rawState === '2') status = 'ALARMING';
+  else                       status = 'OFFLINE';
 
   return {
     id:            String(p.id),
@@ -62,6 +59,9 @@ function normalizeSolisPlant(p) {
     updated_at:    p.updateDate || new Date().toISOString(),
     created_at:    p.createDate || new Date().toISOString(),
     alert:         status !== 'OK',
+    alarmCount:    parseInt(p.alarmCount || 0),
+    inverterOnlineCount: parseInt(p.inverterOnlineCount || 0),
+    inverterCount: parseInt(p.inverterCount || 0),
   };
 }
 
