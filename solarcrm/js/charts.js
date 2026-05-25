@@ -1,22 +1,17 @@
 // ============================================================
 //  SolarCRM — Módulo de gráficos (Chart.js)
 // ============================================================
-
 const Charts = {
   instances: {},
-
   get isDark() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   },
-
   get gridColor() {
     return this.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
   },
-
   get tickColor() {
     return this.isDark ? '#9e9e9a' : '#888';
   },
-
   defaults() {
     return {
       responsive: true,
@@ -28,14 +23,12 @@ const Charts = {
       },
     };
   },
-
   destroy(id) {
     if (this.instances[id]) {
       this.instances[id].destroy();
       delete this.instances[id];
     }
   },
-
   bar(canvasId, labels, data, color = '#1D9E75') {
     this.destroy(canvasId);
     const canvas = document.getElementById(canvasId);
@@ -49,7 +42,6 @@ const Charts = {
       options: this.defaults(),
     });
   },
-
   line(canvasId, labels, data, color = '#1D9E75') {
     this.destroy(canvasId);
     const canvas = document.getElementById(canvasId);
@@ -82,7 +74,6 @@ const Charts = {
       },
     });
   },
-
   multiLine(canvasId, labels, datasets) {
     this.destroy(canvasId);
     const canvas = document.getElementById(canvasId);
@@ -93,7 +84,6 @@ const Charts = {
       options: this.defaults(),
     });
   },
-
   renderDashboard() {
     const d = DB.dashKpis;
     this.bar('chart-geracao-dias',
@@ -106,9 +96,9 @@ const Charts = {
     );
   },
 
-  renderPerfil(cliente) {
-    const meses = ['Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai'];
-    this.bar('chart-perfil-hist', meses, cliente.hist12);
+  // Renderiza histórico do perfil com labels e dados já calculados
+  renderPerfil(labels, data) {
+    this.bar('chart-perfil-hist', labels, data);
   },
 
   renderInversores() {
