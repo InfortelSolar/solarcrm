@@ -5,7 +5,7 @@
 
 const crypto = require('crypto');
 
-const BASE = 'https://server.growatt.com';
+const BASE = 'https://oss.growatt.com';
 
 // Cache de sessão em memória
 let _session = { cookie: null, expiresAt: 0 };
@@ -31,7 +31,7 @@ async function getSession() {
     password: md5(pass),
   });
 
-  const res = await fetch(`${BASE}/newTwoLoginAPI.do`, {
+  const res = await fetch(`${BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
