@@ -1,62 +1,109 @@
 // ============================================================
-//  SolarCRM — Proxy Growatt API v1 (Vercel Serverless)
-//  Servidor: server.pvbutler.com (único servidor ativo)
+//  SolarCRM — Proxy Growatt API (server.growatt.com)
+//  Autenticação: POST /newTwoLoginAPI.do (usuário + senha MD5)
 // ============================================================
 
-const SERVER = 'https://server.pvbutler.com';
+const crypto = require('crypto');
 
-function normalizePlant(p) {
-  const rawStatus = String(p.status ?? '-1');
-  let status;
-  if (rawStatus === '1')       status = 'OK';
-  else if (rawStatus === '0')  status = 'OFFLINE';
-  else                         status = 'NO_COMMUNICATION';
+const BASE = 'https://server.growatt.com';
 
-  const power = parseFloat(p.peak_power || p.nominalPower || p.peakPower || 0);
+// Cache de sessão em memória
+let _session = { cookie: null, expiresAt: 0 };
 
-  return {
-    id:            String(p.plant_id || p.id || Math.random()),
-    name:          p.name || p.plantName || 'Planta Growatt',
-    status,
-    manufacturer:  'Growatt',
-    power:         power.toFixed(2),
-    energyDay:     parseFloat(p.today_energy  || p.energyDay   || p.eDay   || 0).toFixed(2),
-    energyMonth:   parseFloat(p.month_energy  || p.energyMonth || p.eMonth || 0).toFixed(2),
-    energyTotal:   parseFloat(p.total_energy  || p.energyTotal || p.eTotal || 0).toFixed(2),
-    current_power: parseFloat(p.current_power || p.power || 0).toFixed(2),
-    updated_at:    p.last_update_time || p.lastUpdateTime || new Date().toISOString(),
-    created_at:    p.create_date      || p.createDate     || new Date().toISOString(),
-    alert:         status !== 'OK',
-  };
+function md5(str) {
+  return crypto.createHash('md5').update(str).digest('hex');
 }
 
-async function fetchWithToken(url, token, params = {}, method = 'GET') {
-  const headers = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'token': token.trim(),
-  };
-
-  let fetchUrl = url;
-  let body = undefined;
-  const allParams = { token: token.trim(), ...params };
-
-  if (method === 'GET') {
-    fetchUrl = `${url}?${new URLSearchParams(allParams).toString()}`;
-  } else {
-    body = new URLSearchParams(allParams).toString();
+// Login e obtém cookie de sessão
+async function getSession() {
+  const now = Date.now();
+  if (_session.cookie && now < _session.expiresAt) {
+    return _session.cookie;
   }
 
-  const res = await fetch(fetchUrl, {
-    method, headers, body,
-    signal: AbortSignal.timeout(15000),
+  const user = process.env.GROWATT_USER || '';
+  const pass = process.env.GROWATT_PASS || '';
+
+  if (!user || !pass) throw new Error('GROWATT_USER ou GROWATT_PASS não configurados');
+
+  const body = new URLSearchParams({
+    account: user,
+    password: md5(pass),
   });
 
-  const text = await res.text();
-  try { return JSON.parse(text); }
-  catch(e) { throw new Error(`Resposta não-JSON (${res.status}): ${text.slice(0, 150)}`); }
+  const res = await fetch(`${BASE}/newTwoLoginAPI.do`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+
+  if (!res.ok) throw new Error(`Growatt login HTTP ${res.status}`);
+
+  const json = await res.json();
+  if (json.result !== 1) throw new Error(`Growatt login falhou: ${JSON.stringify(json)}`);
+
+  // Extrai cookie de sessão
+  const setCookie = res.headers.get('set-cookie') || '';
+  const jsessionid = setCookie.match(/JSESSIONID=([^;]+)/)?.[1];
+  if (!jsessionid) throw new Error('Cookie JSESSIONID não encontrado');
+
+  const cookie = `JSESSIONID=${jsessionid}`;
+  _session = { cookie, expiresAt: now + 25 * 60 * 1000 }; // 25 min
+  return cookie;
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+async function growattGet(path, cookie, params = {}) {
+  const url = `${BASE}${path}?${new URLSearchParams(params)}`;
+  const res = await fetch(url, {
+    headers: { Cookie: cookie },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error(`Growatt GET ${path} → HTTP ${res.status}`);
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e) { throw new Error(`Resposta não-JSON: ${text.slice(0,100)}`); }
+}
+
+async function growattPost(path, cookie, params = {}) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Cookie: cookie,
+    },
+    body: new URLSearchParams(params).toString(),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error(`Growatt POST ${path} → HTTP ${res.status}`);
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e) { throw new Error(`Resposta não-JSON: ${text.slice(0,100)}`); }
+}
+
+function normalizePlant(p) {
+  const rawStatus = String(p.status ?? p.plantStatus ?? '-1');
+  let status;
+  if (rawStatus === '1')      status = 'OK';
+  else if (rawStatus === '0') status = 'OFFLINE';
+  else                        status = 'NO_COMMUNICATION';
+
+  const power = parseFloat(p.peakPower || p.nominal_power || p.capacity || 0);
+
+  return {
+    id:           String(p.id || p.plantId || Math.random()),
+    name:         p.plantName || p.name || 'Planta Growatt',
+    status,
+    manufacturer: 'Growatt',
+    power:        power.toFixed(2),
+    energyDay:    parseFloat(p.todayEnergy   || p.eDay   || 0).toFixed(2),
+    energyMonth:  parseFloat(p.monthEnergy   || p.eMonth || 0).toFixed(2),
+    energyTotal:  parseFloat(p.totalEnergy   || p.eTotal || 0).toFixed(2),
+    current_power: parseFloat(p.currentPower || p.pac    || 0).toFixed(2),
+    updated_at:   p.lastUpdateTime || new Date().toISOString(),
+    created_at:   p.createTime     || new Date().toISOString(),
+    alert:        status !== 'OK',
+  };
+}
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin',  '*');
@@ -64,103 +111,57 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const token    = (process.env.GROWATT_TOKEN || '').trim();
-  const username = (process.env.GROWATT_USER  || '').trim();
-  const debug    = req.query.debug === '1';
+  const debug = req.query.debug === '1';
   const debugLog = [];
 
-  if (!token) {
-    return res.status(500).json({ ok: false, error: 'GROWATT_TOKEN não configurado' });
-  }
-
-  // ── Tentativa 1: GET /v1/plant/list
   try {
-    const url  = `${SERVER}/v1/plant/list`;
-    const json = await fetchWithToken(url, token, { page: '1', perpage: '100' }, 'GET');
-    if (debug) debugLog.push({ endpoint: '1-plant/list', response: json });
+    const cookie = await getSession();
+    if (debug) debugLog.push({ step: 'login', ok: true });
 
-    if (json.error_code === 0) {
-      const plants = json.data?.plants || json.data?.datas || [];
-      if (plants.length > 0) {
-        return res.status(200).json({
-          ok: true, source: 'growatt', endpoint: url,
-          total: plants.length,
-          data: plants.map(normalizePlant),
-          ...(debug ? { debugLog } : {}),
-        });
-      }
+    // 1. Lista de plantas do usuário
+    const plantList = await growattPost('/index/getPlantListTitle', cookie, {
+      currPage: 1,
+    });
+    if (debug) debugLog.push({ step: 'plantList', response: plantList });
+
+    let plants = plantList?.data || plantList?.plants || [];
+
+    // 2. Se não veio pela rota acima, tenta outra
+    if (!plants.length) {
+      const alt = await growattGet('/selectPlant.do', cookie, { page: 1 });
+      if (debug) debugLog.push({ step: 'selectPlant', response: alt });
+      plants = alt?.data?.plants || alt?.plants || [];
     }
-  } catch(e) {
-    if (debug) debugLog.push({ endpoint: '1-plant/list', error: e.message });
-  }
 
-  await sleep(1000);
-
-  // ── Tentativa 2: POST /v1/plant/user_plant_list
-  if (username) {
-    try {
-      const url  = `${SERVER}/v1/plant/user_plant_list`;
-      const json = await fetchWithToken(url, token, {
-        user_name: username, page: '1', perpage: '100',
-      }, 'POST');
-      if (debug) debugLog.push({ endpoint: '2-user_plant_list', response: json });
-
-      if (json.error_code === 0) {
-        const plants = json.data?.plants || json.data?.datas || [];
-        if (plants.length > 0) {
-          return res.status(200).json({
-            ok: true, source: 'growatt', endpoint: url,
-            total: plants.length,
-            data: plants.map(normalizePlant),
-            ...(debug ? { debugLog } : {}),
-          });
-        }
-      }
-    } catch(e) {
-      if (debug) debugLog.push({ endpoint: '2-user_plant_list', error: e.message });
+    // 3. Tenta rota de lista completa
+    if (!plants.length) {
+      const alt2 = await growattPost('/PlantListAPI.do', cookie, { currPage: 1 });
+      if (debug) debugLog.push({ step: 'PlantListAPI', response: alt2 });
+      plants = alt2?.data || alt2?.plants || [];
     }
-  }
 
-  await sleep(1000);
-
-  // ── Tentativa 3: GET /v1/user/c_user_list → plantas de cada sub-usuário
-  try {
-    const url  = `${SERVER}/v1/user/c_user_list`;
-    const json = await fetchWithToken(url, token, { page: '1', perpage: '100' }, 'GET');
-    if (debug) debugLog.push({ endpoint: '3-c_user_list', response: json });
-
-    if (json.error_code === 0) {
-      const users = json.data?.c_user || [];
-      const allPlants = [];
-
-      for (const u of users.slice(0, 20)) {
-        await sleep(500);
-        try {
-          const pJson = await fetchWithToken(`${SERVER}/v1/plant/list`, token, {
-            C_user_id: u.c_user_id, page: '1', perpage: '50',
-          }, 'GET');
-          if (pJson.error_code === 0) {
-            allPlants.push(...(pJson.data?.plants || []));
-          }
-        } catch(e) {}
-      }
-
-      if (allPlants.length > 0) {
-        return res.status(200).json({
-          ok: true, source: 'growatt', endpoint: url,
-          total: allPlants.length,
-          data: allPlants.map(normalizePlant),
-          ...(debug ? { debugLog } : {}),
-        });
-      }
+    if (!plants.length) {
+      return res.status(200).json({
+        ok: false,
+        error: 'Login OK mas nenhuma planta encontrada',
+        ...(debug ? { debugLog } : {}),
+      });
     }
-  } catch(e) {
-    if (debug) debugLog.push({ endpoint: '3-c_user_list', error: e.message });
-  }
 
-  return res.status(500).json({
-    ok: false,
-    error: 'Nenhum endpoint retornou plantas',
-    ...(debug ? { debugLog } : { tip: 'Use ?debug=1 para ver detalhes' }),
-  });
+    return res.status(200).json({
+      ok: true,
+      source: 'growatt',
+      total: plants.length,
+      data: plants.map(normalizePlant),
+      ...(debug ? { debugLog } : {}),
+    });
+
+  } catch (err) {
+    console.error('[Growatt]', err.message);
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+      ...(debug ? { debugLog } : {}),
+    });
+  }
 };
