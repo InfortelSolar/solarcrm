@@ -2,7 +2,6 @@
 //  SolarCRM — Proxy Solis Cloud API (Vercel Serverless)
 //  api/gdash.js
 // ============================================================
-
 import crypto from 'crypto';
 
 const SOLIS_BASE    = 'https://www.soliscloud.com:13333';
@@ -40,26 +39,29 @@ async function solisRequest(path, body = {}) {
 }
 
 function normalizeSolisPlant(p) {
-  // status: 1=normal, 2=alarm, 3=offline
-  const rawStatus = String(p.status ?? '3');
+  // status: 1=normal/online, 2=alarm, 3=offline
+  // stationStatus pode ser o campo correto dependendo da versão da API
+  const rawStatus = String(p.stationStatus ?? p.status ?? '3');
   let status;
   if (rawStatus === '1')      status = 'OK';
   else if (rawStatus === '2') status = 'ALARMING';
+  else if (rawStatus === '3') status = 'OFFLINE';
+  else if (rawStatus === '0') status = 'OFFLINE';
   else                        status = 'OFFLINE';
 
   return {
-    id:           String(p.id),
-    name:         p.stationName || p.name || 'Planta Solis',
+    id:            String(p.id),
+    name:          p.stationName || p.name || 'Planta Solis',
     status,
-    manufacturer: 'Solis',
-    power:        parseFloat(p.capacity || p.installedPower || 0).toFixed(2),
-    energyDay:    parseFloat(p.dayEnergy   || p.eToday  || 0).toFixed(2),
-    energyMonth:  parseFloat(p.monthEnergy || p.eMonth  || 0).toFixed(2),
-    energyTotal:  parseFloat(p.allEnergy   || p.eTotal  || 0).toFixed(2),
-    current_power:parseFloat(p.power       || p.pac     || 0).toFixed(2),
-    updated_at:   p.updateDate || new Date().toISOString(),
-    created_at:   p.createDate || new Date().toISOString(),
-    alert:        status !== 'OK',
+    manufacturer:  'Solis',
+    power:         parseFloat(p.capacity || p.installedPower || 0).toFixed(2),
+    energyDay:     parseFloat(p.dayEnergy   || p.eToday  || 0).toFixed(2),
+    energyMonth:   parseFloat(p.monthEnergy || p.eMonth  || 0).toFixed(2),
+    energyTotal:   parseFloat(p.allEnergy   || p.eTotal  || 0).toFixed(2),
+    current_power: parseFloat(p.power       || p.pac     || 0).toFixed(2),
+    updated_at:    p.updateDate || new Date().toISOString(),
+    created_at:    p.createDate || new Date().toISOString(),
+    alert:         status !== 'OK',
   };
 }
 
@@ -70,7 +72,6 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const source = req.query.source || 'solis';
-
   if (source !== 'solis') {
     return res.status(400).json({ ok: false, error: `Source desconhecido: ${source}` });
   }
@@ -80,23 +81,36 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Busca todas as plantas paginando
     let allPlants = [];
     let pageNo = 1;
     const pageSize = 100;
 
     while (true) {
-      const json = await solisRequest('/v1/api/userStationList', {
-        pageNo,
-        pageSize,
-      });
-
+      const json = await solisRequest('/v1/api/userStationList', { pageNo, pageSize });
       const records = json?.data?.page?.records || [];
       allPlants = allPlants.concat(records);
-
       const total = json?.data?.page?.total || 0;
       if (allPlants.length >= total || records.length === 0) break;
       pageNo++;
+    }
+
+    // Debug mode — mostra campos brutos para diagnóstico
+    if (req.query.debug === '1') {
+      return res.status(200).json({
+        ok: true, source: 'solis',
+        total: allPlants.length,
+        raw_sample: allPlants.slice(0, 5).map(p => ({
+          id: p.id,
+          stationName: p.stationName,
+          status: p.status,
+          stationStatus: p.stationStatus,
+          state: p.state,
+          power: p.power,
+          dayEnergy: p.dayEnergy,
+          capacity: p.capacity,
+          allKeys: Object.keys(p),
+        })),
+      });
     }
 
     const plants = allPlants.map(normalizeSolisPlant);
