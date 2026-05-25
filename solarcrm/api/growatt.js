@@ -4,7 +4,7 @@
 //  Documentação: Growatt Server API Guide v1.0.1
 // ============================================================
 
-const BASE = 'https://server.growatt.com/v1';
+const BASE = 'https://openapi.growatt.com/v1';
 
 async function growattGet(path, token, params = {}) {
   const qs = new URLSearchParams(params).toString();
