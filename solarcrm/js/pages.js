@@ -612,7 +612,16 @@ const Pages = {
       <div class="alert-item a-${a.tipo}" id="alerta-${a.id}" style="cursor:pointer;" onclick="Pages.abrirDiagnostico('${a.id}')">
         <i class="ti ${a.icon}"></i>
         <div style="flex:1;">
-          <div class="atxt"><strong>${a.titulo}</strong></div>
+          <div class="atxt" style="display:flex;align-items:center;gap:6px;">
+            <strong>${a.titulo.split(':')[0]}</strong>
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;${
+              a.tipoAlerta === 'alarme'
+                ? 'background:#FCEBEB;color:#A32D2D;'
+                : 'background:#F3F4F6;color:#374151;'
+            }">
+              ${a.tipoAlerta === 'alarme' ? '🔴 ALARME' : '⚫ OFFLINE'}
+            </span>
+          </div>
           <div class="atime">${a.detalhe}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
