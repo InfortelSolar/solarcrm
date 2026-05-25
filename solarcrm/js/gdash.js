@@ -28,7 +28,7 @@ const GDash = (() => {
     for (const p of plants) {
       const status = (p.status || '').toUpperCase();
       const power  = parseFloat(p.power) || 0;
-      metrics.totalPower     += power;
+      metrics.totalPower       += power;
       metrics.totalEnergyDay   += parseFloat(p.energyDay)   || 0;
       metrics.totalEnergyMonth += parseFloat(p.energyMonth) || 0;
 
@@ -46,11 +46,11 @@ const GDash = (() => {
 
   function plantToCliente(p) {
     const status = (p.status || '').toUpperCase();
-    const st = status === 'OK' ? 'ok' : status === 'ALARMING' ? 'err' : 'warn';
+    const st = status === 'OK' ? 'ok' : 'warn'; // Solis: offline = warn, nunca err
     const initials = p.name.split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase();
     const bgMap = { ok: '#E1F5EE', warn: '#FAEEDA', err: '#FCEBEB' };
     const corMap = { ok: '#0F6E56', warn: '#854F0B', err: '#A32D2D' };
-    const power = parseFloat(p.power) || 0;
+    const power       = parseFloat(p.power) || 0;
     const geracaoHoje = parseFloat(p.energyDay)   || 0;
     const geracaoMes  = parseFloat(p.energyMonth) || 0;
     const meta        = Math.round(power * 110);
@@ -67,7 +67,7 @@ const GDash = (() => {
       paineis: Math.round(power / 0.55),
       inversor: p.manufacturer || '—',
       status: st,
-      statusLabel: st === 'err' ? 'Crítico' : st === 'warn' ? 'Offline' : 'Normal',
+      statusLabel: st === 'ok' ? 'Normal' : 'Offline',
       geracaoHoje,
       geracaoMes,
       metaMes: meta,
@@ -83,7 +83,7 @@ const GDash = (() => {
 
   function plantToInversor(p, idx) {
     const status = (p.status || '').toUpperCase();
-    const st = status === 'OK' ? 'ok' : status === 'ALARMING' ? 'err' : 'warn';
+    const st = status === 'OK' ? 'ok' : 'warn';
     return {
       id: p.id,
       sigla: 'SOL',
@@ -93,31 +93,30 @@ const GDash = (() => {
       serial: p.id.slice(0,8).toUpperCase(),
       api: 'Solis Cloud',
       status: st,
-      statusLabel: st === 'ok' ? 'Online' : st === 'err' ? 'Alarme' : 'Offline',
+      statusLabel: st === 'ok' ? 'Online' : 'Offline',
       geracaoHoje: parseFloat(p.energyDay) || 0,
       temp: st === 'ok' ? (35 + (idx % 10)) : null,
     };
   }
 
   function plantToAlerta(p) {
-    const alarmCount = parseInt(p.alarmCount || 0);
+    const alarmCount         = parseInt(p.alarmCount || 0);
     const inverterOnlineCount = parseInt(p.inverterOnlineCount || 0);
+    const inverterCount      = parseInt(p.inverterCount || 0);
 
-    // alarmCount > 0 = alarme real no inversor (falha interna)
-    // alarmCount = 0 = offline (sem comunicação)
-    const isAlarmeReal = alarmCount > 0;
-    const tipo = isAlarmeReal ? 'err' : 'warn';
-    const tipoAlerta = isAlarmeReal ? 'alarme' : 'offline';
-
+    // Solis: todas as plantas offline são tipoAlerta 'offline'
+    // alarmCount é usado apenas no diagnóstico para enriquecer informação
     return {
-      id: p.id, tipo, tipoAlerta,
-      icon: isAlarmeReal ? 'ti-alert-circle' : 'ti-wifi-off',
-      titulo: `${p.name}: ${isAlarmeReal ? 'Alarme ativo no inversor' : 'Sistema offline'}`,
+      id: p.id,
+      tipo: 'warn',
+      tipoAlerta: 'offline',
+      icon: 'ti-wifi-off',
+      titulo: `${p.name}: Sistema offline`,
       detalhe: `${p.manufacturer} · ${p.power} kWp · ${new Date(p.updated_at).toLocaleString('pt-BR')}`,
       acao: 'Diagnosticar',
       alarmCount,
       inverterOnlineCount,
-      inverterCount: parseInt(p.inverterCount || 0),
+      inverterCount,
     };
   }
 
