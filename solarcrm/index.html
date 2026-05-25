@@ -12,9 +12,9 @@
 <body>
   <div class="app">
     <aside class="sidebar" id="sidebar">
-<div class="logo">
-  <img src="LOGO_NOVA_IS.png" alt="Infortel Solar" style="height:92px;width:auto;object-fit:contain;" />
-</div>
+      <div class="logo">
+        <img src="LOGO_NOVA_IS.png" alt="Infortel Solar" style="height:92px;width:auto;object-fit:contain;" />
+      </div>
       <nav class="nav">
         <div class="nav-section">
           <div class="nav-label">Visão geral</div>
@@ -32,18 +32,18 @@
           <a class="nav-item" data-page="config"><i class="ti ti-settings"></i> Configurações</a>
         </div>
       </nav>
-<div class="sidebar-footer">
-  <div class="user-chip">
-    <div class="avatar-sm">IS</div>
-    <div>
-      <div class="user-name">Infortel Solar</div>
-      <div class="user-role">Administrador</div>
-    </div>
-  </div>
-  <button class="btn btn-sm" style="margin-top:8px;width:100%;justify-content:center;color:#E24B4A;border-color:#E24B4A;" onclick="App.logout()">
-    <i class="ti ti-logout"></i> Sair
-  </button>
-</div>
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar-sm">IS</div>
+          <div>
+            <div class="user-name">Infortel Solar</div>
+            <div class="user-role">Administrador</div>
+          </div>
+        </div>
+        <button class="btn btn-sm" style="margin-top:8px;width:100%;justify-content:center;color:#E24B4A;border-color:#E24B4A;" onclick="App.logout()">
+          <i class="ti ti-logout"></i> Sair
+        </button>
+      </div>
     </aside>
 
     <div class="main">
@@ -109,14 +109,16 @@
         <div class="form-group">
           <label for="f-inversor">Modelo do inversor</label>
           <select id="f-inversor">
+            <option>Solis</option>
             <option>Growatt MIN 3000TL</option>
             <option>Growatt MIN 5000TL</option>
             <option>Fronius Symo 8.0</option>
             <option>Fronius Symo 24.0</option>
-            <option>SolarEdge SE6K</option>
-            <option>SolarEdge SE8K</option>
+            <option>SolPlanet</option>
             <option>Huawei SUN2000-5KTL</option>
-            <option>ABB UNO-DM-3.0</option>
+            <option>GoodWe</option>
+            <option>Kehua</option>
+            <option>Renac</option>
           </select>
         </div>
         <div class="form-actions">
@@ -145,7 +147,7 @@
   <!-- TOAST -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="js/data.js"></script>
+  <script src="js/data.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/pages.js"></script>
   <script src="js/solplanet.js"></script>
@@ -153,7 +155,7 @@
   <script src="js/historico.js"></script>
   <script src="js/diagnostico.js"></script>
   <script src="js/editor-relatorio.js"></script>
+  <script src="js/solis.js"></script>
   <script src="js/app.js"></script>
-  <script src="js/gdash.js" data-gdash-auto></script>
 </body>
 </html>
