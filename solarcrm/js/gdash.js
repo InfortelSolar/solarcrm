@@ -100,17 +100,12 @@ const GDash = (() => {
   }
 
   function plantToAlerta(p) {
-    const status = (p.status || '').toUpperCase();
     const alarmCount = parseInt(p.alarmCount || 0);
     const inverterOnlineCount = parseInt(p.inverterOnlineCount || 0);
 
-    // Lógica refinada:
-    // - ALARMING + alarmCount > 0 → alarme real no inversor
-    // - ALARMING + alarmCount = 0 + inverterOnlineCount = 0 → offline (sem comunicação)
-    // - OFFLINE → sempre offline
-    const isAlarmeReal = status === 'ALARMING' && alarmCount > 0;
-    const isOffline = status === 'OFFLINE' || (status === 'ALARMING' && alarmCount === 0 && inverterOnlineCount === 0);
-
+    // alarmCount > 0 = alarme real no inversor (falha interna)
+    // alarmCount = 0 = offline (sem comunicação)
+    const isAlarmeReal = alarmCount > 0;
     const tipo = isAlarmeReal ? 'err' : 'warn';
     const tipoAlerta = isAlarmeReal ? 'alarme' : 'offline';
 
