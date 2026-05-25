@@ -17,6 +17,9 @@ const App = {
     nomeRemetente: 'Infortel Solar — SolarCRM',
   },
 
+  _refreshTimer: null,
+  _lastUpdate: null,
+
   async init() {
     DB.init()
     this.bindNav()
@@ -30,6 +33,42 @@ const App = {
     this.render('dashboard')
     const badge = document.getElementById('badge-alertas')
     if (badge) badge.textContent = DB.alertas.length
+    this._lastUpdate = new Date()
+    this._startAutoRefresh()
+  },
+
+  _startAutoRefresh() {
+    if (this._refreshTimer) clearInterval(this._refreshTimer)
+    this._refreshTimer = setInterval(async () => {
+      await this._silentRefresh()
+    }, 5 * 60 * 1000) // 5 minutos
+  },
+
+  async _silentRefresh() {
+    try {
+      await GDash.load()
+      await SolPlanet.load()
+      await Fronius.load()
+      this._lastUpdate = new Date()
+      // Atualiza badge
+      const badge = document.getElementById('badge-alertas')
+      if (badge) badge.textContent = DB.alertas.length
+      // Atualiza indicador de horário no dashboard
+      this._updateLastUpdateIndicator()
+      // Re-renderiza página atual silenciosamente
+      if (this.currentPage === 'dashboard') this.render('dashboard')
+      if (this.currentPage === 'alertas')   this.render('alertas')
+      if (this.currentPage === 'inversores') this.render('inversores')
+    } catch(e) {
+      console.warn('[AutoRefresh] Falha:', e.message)
+    }
+  },
+
+  _updateLastUpdateIndicator() {
+    const el = document.getElementById('last-update-time')
+    if (el && this._lastUpdate) {
+      el.textContent = this._lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    }
   },
 
   // ── Configurações persistentes ──────────────────────────────
