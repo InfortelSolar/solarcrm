@@ -26,7 +26,7 @@ const App = {
     this.bindModal()
     this.bindTopbar()
     this.bindMenu()
-    await GDash.load()
+    await Solis.load()
     await SolPlanet.load()
     await Fronius.load()
     await this.loadConfig()
@@ -46,7 +46,7 @@ const App = {
 
   async _silentRefresh() {
     try {
-      await GDash.load()
+      await Solis.load()
       await SolPlanet.load()
       await Fronius.load()
       this._lastUpdate = new Date()
@@ -409,7 +409,7 @@ const App = {
 
   async recarregarDados() {
     this.toast('Atualizando dados...');
-    await GDash.load();
+    await Solis.load();
     await SolPlanet.load();
     await Fronius.load();
     this.render(this.currentPage);
