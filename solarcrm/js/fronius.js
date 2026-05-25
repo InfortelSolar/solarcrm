@@ -4,8 +4,8 @@
 const Fronius = (() => {
 
   function plantToCliente(p) {
-    const isAlarme = (p.status || '').toLowerCase() === 'error';
-    const st = p.error ? 'warn' : isAlarme ? 'err' : 'ok';
+    const isOnline = p.status === 'OK';
+    const st = isOnline ? 'ok' : 'warn';
     const initials = p.name.split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase();
     const bgMap  = { ok: '#E1F5EE', warn: '#FAEEDA', err: '#FCEBEB' };
     const corMap = { ok: '#0F6E56', warn: '#854F0B', err: '#A32D2D' };
@@ -25,20 +25,20 @@ const Fronius = (() => {
       paineis: Math.round(power / 0.55),
       inversor: 'Fronius',
       status: st,
-      statusLabel: st === 'err' ? 'Crítico' : st === 'warn' ? 'Offline' : 'Normal',
+      statusLabel: st === 'ok' ? 'Normal' : 'Offline',
       geracaoHoje,
       geracaoMes: geracaoHoje,
       metaMes: meta,
       hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
       performance: perf,
       relatoriosEnviados: [],
-      updated_at: p.lastImport || null,
+      updated_at: p.lastImport ? new Date(p.lastImport).getTime() : null,
     };
   }
 
   function plantToInversor(p) {
-    const isAlarme = (p.status || '').toLowerCase() === 'error';
-    const st = p.error ? 'warn' : isAlarme ? 'err' : 'ok';
+    const isOnline = p.status === 'OK';
+    const st = isOnline ? 'ok' : 'warn';
     return {
       id: p.id,
       sigla: 'FRO',
@@ -48,7 +48,7 @@ const Fronius = (() => {
       serial: p.id.slice(0,8).toUpperCase(),
       api: 'Fronius Solar.web',
       status: st,
-      statusLabel: st === 'ok' ? 'Online' : st === 'err' ? 'Alarme' : 'Offline',
+      statusLabel: st === 'ok' ? 'Online' : 'Offline',
       geracaoHoje: parseFloat(p.eToday_kWh) || 0,
       temp: null,
       potencia: parseFloat(p.powerNow_W / 1000) || 0,
@@ -56,14 +56,11 @@ const Fronius = (() => {
   }
 
   function plantToAlerta(p) {
-    const isAlarme = (p.status || '').toLowerCase() === 'error';
-    const tipo = isAlarme ? 'err' : 'warn';
-    const tipoAlerta = isAlarme ? 'alarme' : 'offline';
     return {
-      id: p.id, tipo, tipoAlerta,
-      icon: isAlarme ? 'ti-alert-circle' : 'ti-wifi-off',
-      titulo: `${p.name}: ${isAlarme ? 'Alarme ativo no inversor' : 'Sistema offline'}`,
-      detalhe: p.error || 'Sem dados de geração',
+      id: p.id, tipo: 'warn', tipoAlerta: 'offline',
+      icon: 'ti-wifi-off',
+      titulo: `${p.name}: Sistema offline`,
+      detalhe: `Fronius · ${p.peakPower_kWp || 0} kWp · Último contato: ${p.lastImport ? new Date(p.lastImport).toLocaleString('pt-BR') : '—'}`,
       acao: 'Diagnosticar',
     };
   }
@@ -72,18 +69,21 @@ const Fronius = (() => {
     try {
       const res = await fetch('/api/fronius');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data  = await res.json();
       const plants = data.plants || [];
 
-      const clientes   = plants.map(plantToCliente);
+      const online  = plants.filter(p => p.status === 'OK');
+      const offline = plants.filter(p => p.status !== 'OK');
+
+      const clientes  = plants.map(plantToCliente);
       const inversores = plants.map(plantToInversor);
-      const alertas    = plants.filter(p => p.error || (p.status || '').toLowerCase() !== 'running').map(plantToAlerta);
+      const alertas   = offline.map(plantToAlerta);
 
       DB.clientes   = [...(DB.clientes   || []), ...clientes];
       DB.inversores = [...(DB.inversores || []), ...inversores];
       DB.alertas    = [...(DB.alertas    || []), ...alertas];
 
-      const totalHoje = plants.reduce((s, p) => s + (parseFloat(p.eToday_kWh) || 0), 0);
+      const totalHoje = online.reduce((s, p) => s + (parseFloat(p.eToday_kWh) || 0), 0);
       DB.dashKpis.clientesAtivos = (DB.dashKpis.clientesAtivos || 0) + plants.length;
       DB.dashKpis.alertasAtivos  = (DB.dashKpis.alertasAtivos  || 0) + alertas.length;
       DB.dashKpis.geracaoHoje    = parseFloat(((DB.dashKpis.geracaoHoje || 0) + totalHoje).toFixed(2));
@@ -91,6 +91,8 @@ const Fronius = (() => {
 
       console.log('[Fronius] OK:', {
         total:   plants.length,
+        online:  online.length,
+        offline: offline.length,
         alertas: alertas.length,
         energyDay: totalHoje.toFixed(1) + ' kWh',
       });
