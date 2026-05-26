@@ -100,6 +100,26 @@ module.exports = async function handler(req, res) {
 
   const debug = req.query.debug === '1';
 
+  // debug=2: testa geração de uma planta específica
+  if (req.query.debug === '2' && req.query.pvSystemId) {
+    try {
+      const jwt = await getJwt();
+      const id = req.query.pvSystemId;
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const day = now.getDate();
+
+      const aggDay = await swqGet(`/pvsystems/${id}/aggdata/years/${year}/months/${month}/days/${day}`, jwt).catch(e => ({ error: e.message }));
+      const flow   = await swqGet(`/pvsystems/${id}/energyflow`, jwt).catch(e => ({ error: e.message }));
+      const detail = await swqGet(`/pvsystems/${id}`, jwt).catch(e => ({ error: e.message }));
+
+      return res.status(200).json({ aggDay, flow, detail });
+    } catch(err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   try {
     const jwt = await getJwt();
 
