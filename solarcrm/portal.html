@@ -25,8 +25,11 @@
     .login-sub { font-size: 14px; color: var(--text-sub); margin-bottom: 28px; text-align: center; }
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
-    .form-group input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    .input-wrap { position: relative; }
+    .form-group input { width: 100%; padding: 12px 42px 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; transition: border-color 0.2s; }
     .form-group input:focus { border-color: var(--green); }
+    .toggle-pass { position: absolute; right: 0; top: 0; bottom: 0; width: 42px; background: none; border: none; cursor: pointer; color: var(--text-sub); font-size: 18px; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+    .toggle-pass:hover { color: var(--text); }
     .btn-login { width: 100%; padding: 13px; background: var(--green); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 8px; }
     .btn-login:hover { background: var(--green-dark); }
     .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -43,7 +46,6 @@
     .portal-welcome { margin-bottom: 28px; }
     .portal-welcome h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
     .portal-welcome p { font-size: 14px; color: var(--text-sub); }
-
     .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .metric-card { background: var(--card); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); }
     .metric-label { font-size: 12px; color: var(--text-sub); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
@@ -56,16 +58,13 @@
     .status-badge.ok { background: var(--green-light); color: var(--green-dark); }
     .status-badge.warn { background: #FAEEDA; color: #854F0B; }
     .status-badge.err { background: #FCEBEB; color: #A32D2D; }
-
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
     @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } .metrics-grid { grid-template-columns: 1fr 1fr; } }
-
     .card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
     .card-hdr { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
     .card-title { font-size: 14px; font-weight: 600; }
     .card-meta { font-size: 12px; color: var(--text-sub); }
     .chart-wrap { padding: 16px 20px; height: 220px; }
-
     .alert-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 13px; }
     .alert-item:last-child { border-bottom: none; }
     .alert-item.ok { background: #F0FDF8; }
@@ -77,14 +76,12 @@
     .alert-item.err i { color: var(--red); }
     .alert-title { font-weight: 600; margin-bottom: 2px; }
     .alert-time { color: var(--text-sub); font-size: 12px; }
-
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
     .info-item { padding: 14px 20px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
     .info-item:nth-child(even) { border-right: none; }
     .info-item:nth-last-child(-n+2) { border-bottom: none; }
     .info-lbl { font-size: 11px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
     .info-val { font-size: 14px; font-weight: 600; }
-
     #portal-loader { min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; background: var(--bg); }
     .spinner { width: 40px; height: 40px; border: 3px solid var(--green-light); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -115,7 +112,12 @@
     </div>
     <div class="form-group">
       <label>Senha</label>
-      <input type="password" id="login-senha" placeholder="••••••••" />
+      <div class="input-wrap">
+        <input type="password" id="login-senha" placeholder="••••••••" />
+        <button class="toggle-pass" id="toggle-pass" type="button" aria-label="Mostrar senha">
+          <i class="ti ti-eye" id="eye-icon"></i>
+        </button>
+      </div>
     </div>
     <button class="btn-login" id="btn-login" onclick="Portal.login()">Entrar</button>
     <div class="login-error" id="login-error"></div>
@@ -139,7 +141,6 @@
       <h1 id="portal-greeting">Olá! 👋</h1>
       <p id="portal-date"></p>
     </div>
-
     <div class="metrics-grid" id="portal-metrics">
       <div class="metric-card">
         <div class="metric-label"><i class="ti ti-bolt" style="color:#1D9E75"></i> Geração hoje</div>
@@ -162,16 +163,13 @@
         <div class="metric-sub" id="m-status-sub">Carregando...</div>
       </div>
     </div>
-
     <div class="grid-2">
       <div class="card">
         <div class="card-hdr">
           <div class="card-title">Geração — últimos 7 dias</div>
           <div class="card-meta">kWh/dia</div>
         </div>
-        <div class="chart-wrap">
-          <canvas id="chart-portal-geracao"></canvas>
-        </div>
+        <div class="chart-wrap"><canvas id="chart-portal-geracao"></canvas></div>
       </div>
       <div class="card">
         <div class="card-hdr"><div class="card-title">Detalhes da usina</div></div>
@@ -185,7 +183,6 @@
         </div>
       </div>
     </div>
-
     <div class="card" style="margin-bottom:16px;">
       <div class="card-hdr">
         <div class="card-title">Alertas do sistema</div>
@@ -193,7 +190,6 @@
       </div>
       <div id="portal-alertas"></div>
     </div>
-
     <div class="card">
       <div class="card-hdr"><div class="card-title">Relatórios enviados</div></div>
       <div id="portal-relatorios">
@@ -211,6 +207,24 @@ const SUPABASE_URL = 'https://ovqwavrbxdplehvgplcv.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Toggle senha
+const togglePass = document.getElementById('toggle-pass');
+const eyeIcon    = document.getElementById('eye-icon');
+const senhaInput = document.getElementById('login-senha');
+
+function doToggle(e) {
+  e.preventDefault();
+  if (senhaInput.type === 'password') {
+    senhaInput.type = 'text';
+    eyeIcon.className = 'ti ti-eye-off';
+  } else {
+    senhaInput.type = 'password';
+    eyeIcon.className = 'ti ti-eye';
+  }
+}
+togglePass.addEventListener('click', doToggle);
+togglePass.addEventListener('touchend', doToggle, { passive: false });
+
 const Portal = {
   plant: null,
   chartInstance: null,
@@ -227,7 +241,7 @@ const Portal = {
 
   async login() {
     const email = document.getElementById('login-email').value.trim();
-    const senha = document.getElementById('login-senha').value;
+    const senha = senhaInput.value;
     const btn   = document.getElementById('btn-login');
     const err   = document.getElementById('login-error');
     if (!email || !senha) { err.textContent = 'Preencha e-mail e senha.'; err.style.display = 'block'; return; }
@@ -263,7 +277,7 @@ const Portal = {
     document.getElementById('portal-greeting').textContent = `Olá! Aqui estão os dados de ${portalData.plant_name} 🌞`;
 
     try {
-      const res  = await fetch('/api/gdash');
+      const res  = await fetch('/api/solis');
       const json = await res.json();
       const plants = json.data || [];
       const plant = plants.find(p => p.id === portalData.plant_id || p.name === portalData.plant_name);
@@ -276,11 +290,11 @@ const Portal = {
     const status   = (p.status || '').toUpperCase();
     const power    = parseFloat(p.power) || 0;
     const isOnline = status === 'OK';
-    const geracao  = isOnline ? parseFloat((power * 4.5).toFixed(1)) : 0;
-    const geracaoMes = Math.round(power * 110 * 0.9);
+    const geracao  = parseFloat(p.energyDay) || 0;
+    const geracaoMes = parseFloat(p.energyMonth) || 0;
     const economia = (geracaoMes * 0.82).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const meta     = Math.round(power * 110);
-    const perf     = isOnline ? 90 : 0;
+    const perf     = meta > 0 ? Math.min(100, Math.round((geracaoMes / meta) * 100)) : 0;
 
     document.getElementById('m-geracao').textContent     = `${geracao} kWh`;
     document.getElementById('m-geracao-sub').textContent = isOnline ? '↑ Normal' : 'Sistema offline';
@@ -289,9 +303,9 @@ const Portal = {
     document.getElementById('m-mes-sub').textContent     = `${perf}% da meta (${meta.toLocaleString('pt-BR')} kWh)`;
     document.getElementById('m-economia').textContent    = economia;
 
-    const stMap = { OK: ['ok', '🟢 Online'], OFFLINE: ['err', '🔴 Offline'], ALARMING: ['err', '⚠️ Alarme'], NO_COMMUNICATION: ['warn', '📡 Sem comunicação'] };
+    const stMap = { OK: ['ok', '🟢 Online'], OFFLINE: ['warn', '⚫ Offline'], ALARMING: ['err', '🔴 Alarme'] };
     const [stClass, stLabel] = stMap[status] || ['warn', status];
-    document.getElementById('m-status').innerHTML     = `<span class="status-badge ${stClass}">${stLabel}</span>`;
+    document.getElementById('m-status').innerHTML       = `<span class="status-badge ${stClass}">${stLabel}</span>`;
     document.getElementById('m-status-sub').textContent = new Date(p.updated_at).toLocaleString('pt-BR');
 
     document.getElementById('info-potencia').textContent   = `${power} kWp`;
