@@ -4,9 +4,9 @@
 // ============================================================
 import crypto from 'crypto';
 
-const SOLIS_BASE    = 'https://www.soliscloud.com:13333';
-const SOLIS_KEY_ID  = process.env.SOLIS_KEY_ID;
-const SOLIS_SECRET  = process.env.SOLIS_KEY_SECRET;
+const SOLIS_BASE   = 'https://www.soliscloud.com:13333';
+const SOLIS_KEY_ID = process.env.SOLIS_KEY_ID;
+const SOLIS_SECRET = process.env.SOLIS_KEY_SECRET;
 
 function solisSign(keySecret, method, contentMd5, contentType, date, path) {
   const str = [method, contentMd5, contentType, date, path].join('\n');
@@ -39,11 +39,9 @@ async function solisRequest(path, body = {}) {
 }
 
 function normalizeSolisPlant(p) {
-  // state: 1=online, qualquer outra coisa=offline
-  // alarmCount indica alarmes ativos mas não muda o status principal
-  const rawState = String(p.state ?? '3');
+  const rawState   = String(p.state ?? '3');
   const alarmCount = parseInt(p.alarmCount || 0);
-  const status = rawState === '1' ? 'OK' : 'OFFLINE';
+  const status     = rawState === '1' ? 'OK' : 'OFFLINE';
 
   return {
     id:            String(p.id),
@@ -58,9 +56,9 @@ function normalizeSolisPlant(p) {
     updated_at:    p.updateDate || new Date().toISOString(),
     created_at:    p.createDate || new Date().toISOString(),
     alert:         status !== 'OK',
-    alarmCount:    parseInt(p.alarmCount || 0),
+    alarmCount,
     inverterOnlineCount: parseInt(p.inverterOnlineCount || 0),
-    inverterCount: parseInt(p.inverterCount || 0),
+    inverterCount:       parseInt(p.inverterCount || 0),
   };
 }
 
@@ -74,47 +72,65 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok: false, error: 'SOLIS_KEY_ID ou SOLIS_KEY_SECRET não configurados' });
   }
 
+  // ── Endpoint de alarmes de uma planta específica ──────────
+  if (req.query.alarms === '1' && req.query.stationId) {
+    try {
+      const json = await solisRequest('/v1/api/alarmList', {
+        pageNo:    1,
+        pageSize:  10,
+        stationId: req.query.stationId,
+        state:     '0', // 0=pendente, 1=resolvido
+      });
+
+      const alarms = json?.data?.records || [];
+      return res.status(200).json({
+        ok: true,
+        alarms: alarms.map(a => ({
+          code:        a.alarmCode    || '—',
+          level:       a.alarmLevel   || '—', // 1=aviso 2=normal 3=urgente
+          message:     a.alarmMsg     || 'Sem descrição',
+          advice:      a.advice       || 'Consulte o manual do fabricante',
+          startTime:   a.alarmBeginTime || null,
+          status:      a.state        || '0',
+        })),
+      });
+    } catch(err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  }
+
+  // ── Debug mode ────────────────────────────────────────────
+  const debug = req.query.debug === '1';
+
   try {
     let allPlants = [];
-    let pageNo = 1;
+    let pageNo    = 1;
     const pageSize = 100;
 
     while (true) {
-      const json = await solisRequest('/v1/api/userStationList', { pageNo, pageSize });
+      const json    = await solisRequest('/v1/api/userStationList', { pageNo, pageSize });
       const records = json?.data?.page?.records || [];
-      allPlants = allPlants.concat(records);
-      const total = json?.data?.page?.total || 0;
+      allPlants     = allPlants.concat(records);
+      const total   = json?.data?.page?.total || 0;
       if (allPlants.length >= total || records.length === 0) break;
       pageNo++;
     }
 
-    // Debug mode — mostra campos brutos para diagnóstico
-    if (req.query.debug === '1') {
+    if (debug) {
       return res.status(200).json({
         ok: true, source: 'solis',
         total: allPlants.length,
         raw_sample: allPlants.slice(0, 5).map(p => ({
-          id: p.id,
-          stationName: p.stationName,
-          status: p.status,
-          stationStatus: p.stationStatus,
-          state: p.state,
-          power: p.power,
-          dayEnergy: p.dayEnergy,
-          capacity: p.capacity,
+          id: p.id, stationName: p.stationName,
+          state: p.state, alarmCount: p.alarmCount,
+          inverterOnlineCount: p.inverterOnlineCount,
           allKeys: Object.keys(p),
         })),
       });
     }
 
     const plants = allPlants.map(normalizeSolisPlant);
-
-    return res.status(200).json({
-      ok:     true,
-      source: 'solis',
-      total:  plants.length,
-      data:   plants,
-    });
+    return res.status(200).json({ ok: true, source: 'solis', total: plants.length, data: plants });
 
   } catch (err) {
     console.error('[api/solis]', err.message);
