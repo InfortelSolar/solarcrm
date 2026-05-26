@@ -21,11 +21,11 @@
     .form-group{margin-bottom:16px;}
     label{display:block;font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:6px;}
     .input-wrap{position:relative;}
-    .input-wrap i{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--text-muted);pointer-events:none;}
-    input{width:100%;padding:11px 12px 11px 38px;font-size:14px;font-family:'DM Sans',sans-serif;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);transition:border-color 0.2s,box-shadow 0.2s;outline:none;}
+    .input-wrap i.icon-left{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--text-muted);pointer-events:none;}
+    input{width:100%;padding:11px 42px 11px 38px;font-size:14px;font-family:'DM Sans',sans-serif;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);transition:border-color 0.2s,box-shadow 0.2s;outline:none;}
     input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(29,158,117,0.12);background:#fff;}
     input.error{border-color:var(--error);}
-    .toggle-pass{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;padding:0;}
+    .toggle-pass{position:absolute;right:0;top:0;bottom:0;width:42px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:0;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
     .toggle-pass:hover{color:var(--text);}
     .error-msg{display:none;background:var(--error-light);color:var(--error);font-size:12px;padding:10px 12px;border-radius:8px;margin-bottom:16px;align-items:center;gap:7px;}
     .error-msg.show{display:flex;}
@@ -60,14 +60,14 @@
       <div class="form-group">
         <label for="email">E-mail</label>
         <div class="input-wrap">
-          <i class="ti ti-mail"></i>
+          <i class="ti ti-mail icon-left"></i>
           <input type="email" id="email" placeholder="seu@email.com" autocomplete="email" />
         </div>
       </div>
       <div class="form-group">
         <label for="senha">Senha</label>
         <div class="input-wrap">
-          <i class="ti ti-lock"></i>
+          <i class="ti ti-lock icon-left"></i>
           <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password" />
           <button class="toggle-pass" id="toggle-pass" type="button" aria-label="Mostrar senha">
             <i class="ti ti-eye" id="eye-icon"></i>
@@ -88,64 +88,77 @@
       SolarCRM &copy; 2026 · <a href="mailto:suporte@seudominio.com.br">Suporte</a>
     </div>
   </div>
-  <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-    const supabase = createClient(
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script>
+    const { createClient } = supabase;
+    const sb = createClient(
       'https://ovqwavrbxdplehvgplcv.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cXdhdnJieGRwbGVodmdwbGN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDUzMTMsImV4cCI6MjA5MzgyMTMxM30.XWr7CRvjxAFzghgPbYHPyH4HzQRX-LkoRtF_qCvj6zM'
-    )
-    const btnLogin = document.getElementById('btn-login')
-    const emailInput = document.getElementById('email')
-    const senhaInput = document.getElementById('senha')
-    const errorMsg = document.getElementById('error-msg')
-    const errorText = document.getElementById('error-text')
-    const togglePass = document.getElementById('toggle-pass')
-    const eyeIcon = document.getElementById('eye-icon')
+    );
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) window.location.href = '/index.html'
+    const btnLogin   = document.getElementById('btn-login');
+    const emailInput = document.getElementById('email');
+    const senhaInput = document.getElementById('senha');
+    const errorMsg   = document.getElementById('error-msg');
+    const errorText  = document.getElementById('error-text');
+    const togglePass = document.getElementById('toggle-pass');
+    const eyeIcon    = document.getElementById('eye-icon');
 
-    togglePass.addEventListener('click', () => {
+    // Redireciona se já logado
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = '/index.html';
+    });
+
+    // Toggle senha — suporte a touch e click
+    function doTogglePass(e) {
+      e.preventDefault();
       if (senhaInput.type === 'password') {
-        senhaInput.type = 'text'
-        eyeIcon.className = 'ti ti-eye-off'
+        senhaInput.type = 'text';
+        eyeIcon.className = 'ti ti-eye-off';
       } else {
-        senhaInput.type = 'password'
-        eyeIcon.className = 'ti ti-eye'
+        senhaInput.type = 'password';
+        eyeIcon.className = 'ti ti-eye';
       }
-    })
+    }
+    togglePass.addEventListener('click', doTogglePass);
+    togglePass.addEventListener('touchend', doTogglePass, { passive: false });
 
-    senhaInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnLogin.click() })
-    emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') senhaInput.focus() })
+    // Enter para avançar/logar
+    emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') senhaInput.focus(); });
+    senhaInput.addEventListener('keydown', e => { if (e.key === 'Enter') fazerLogin(); });
 
-    btnLogin.addEventListener('click', async () => {
-      const email = emailInput.value.trim()
-      const senha = senhaInput.value
-      if (!email || !senha) { mostrarErro('Preencha o e-mail e a senha.'); return }
-      btnLogin.classList.add('loading')
-      btnLogin.disabled = true
-      errorMsg.classList.remove('show')
-      const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
+    // Login
+    async function fazerLogin() {
+      const email = emailInput.value.trim();
+      const senha = senhaInput.value;
+      if (!email || !senha) { mostrarErro('Preencha o e-mail e a senha.'); return; }
+      btnLogin.classList.add('loading');
+      btnLogin.disabled = true;
+      errorMsg.classList.remove('show');
+      const { error } = await sb.auth.signInWithPassword({ email, password: senha });
       if (error) {
-        btnLogin.classList.remove('loading')
-        btnLogin.disabled = false
+        btnLogin.classList.remove('loading');
+        btnLogin.disabled = false;
         mostrarErro(
           error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' :
           error.message.includes('Email not confirmed') ? 'Confirme seu e-mail antes de entrar.' :
           'Erro ao fazer login. Tente novamente.'
-        )
-        emailInput.classList.add('error')
-        senhaInput.classList.add('error')
+        );
+        emailInput.classList.add('error');
+        senhaInput.classList.add('error');
       } else {
-        document.getElementById('form-section').style.display = 'none'
-        document.getElementById('success-state').classList.add('show')
-        setTimeout(() => { window.location.href = '/index.html' }, 1500)
+        document.getElementById('form-section').style.display = 'none';
+        document.getElementById('success-state').classList.add('show');
+        setTimeout(() => { window.location.href = '/index.html'; }, 1500);
       }
-    })
+    }
 
-    function mostrarErro(msg) { errorText.textContent = msg; errorMsg.classList.add('show') }
-    emailInput.addEventListener('input', () => { errorMsg.classList.remove('show'); emailInput.classList.remove('error'); senhaInput.classList.remove('error') })
-    senhaInput.addEventListener('input', () => { errorMsg.classList.remove('show'); emailInput.classList.remove('error'); senhaInput.classList.remove('error') })
+    btnLogin.addEventListener('click', fazerLogin);
+
+    function mostrarErro(msg) { errorText.textContent = msg; errorMsg.classList.add('show'); }
+    emailInput.addEventListener('input', () => { errorMsg.classList.remove('show'); emailInput.classList.remove('error'); senhaInput.classList.remove('error'); });
+    senhaInput.addEventListener('input', () => { errorMsg.classList.remove('show'); emailInput.classList.remove('error'); senhaInput.classList.remove('error'); });
   </script>
 </body>
 </html>
