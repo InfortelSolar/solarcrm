@@ -149,9 +149,11 @@ module.exports = async function handler(req, res) {
             jwt
           );
 
-          const eToday = aggDay?.data?.[0]?.channels?.find(
-            (c) => c.channelName === 'EnergyProductionTotal'
-          )?.value ?? null;
+          // Estrutura real: data.channels[].values.{"DD": valor_em_Wh}
+          const channels = aggDay?.data?.channels || [];
+          const eChannel = channels.find(c => c.channelName === 'EnergyProductionTotal');
+          const dayKey   = String(day);
+          const eToday_Wh = eChannel?.values?.[dayKey] ?? null;
 
           // Tenta buscar potência atual
           let powerNow = null;
@@ -165,8 +167,8 @@ module.exports = async function handler(req, res) {
             name:          sys.name ?? id,
             status,
             powerNow_W:    powerNow,
-            eToday_Wh:     eToday,
-            eToday_kWh:    eToday !== null ? parseFloat((eToday / 1000).toFixed(2)) : null,
+            eToday_Wh,
+            eToday_kWh:    eToday_Wh !== null ? parseFloat((eToday_Wh / 1000).toFixed(2)) : null,
             peakPower_kWp: sys.peakPower ? parseFloat((sys.peakPower / 1000).toFixed(2)) : null,
             address:       sys.address ?? null,
             lastImport:    sys.lastImport ?? null,
