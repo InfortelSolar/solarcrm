@@ -64,10 +64,39 @@ function getStatusFromLastImport(lastImport) {
   return 'OFFLINE';                       // sem atualização há mais de 24h = offline
 }
 
+// Busca mensagens/alarmes de uma planta Fronius
+async function getFroniusAlarms(pvSystemId, jwt) {
+  try {
+    const data = await swqGet(`/pvsystems/${pvSystemId}/messages`, jwt);
+    const messages = data?.messages || data?.data || [];
+    return messages
+      .filter(m => m.messageType === 'Error' || m.messageType === 'Warning' || m.severity === 'Error')
+      .slice(0, 10)
+      .map(m => ({
+        code:    m.messageCode  || m.code    || '—',
+        message: m.message      || m.text    || m.description || 'Sem descrição',
+        advice:  m.advice       || m.solution || 'Verifique o display do inversor',
+        level:   m.messageType  || m.severity || '—',
+        time:    m.logDateTime  || m.timestamp || null,
+      }));
+  } catch(_) { return []; }
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // ── Alarmes de uma planta específica ──────────────────────
+  if (req.query.alarms === '1' && req.query.pvSystemId) {
+    try {
+      const jwt = await getJwt();
+      const alarms = await getFroniusAlarms(req.query.pvSystemId, jwt);
+      return res.status(200).json({ ok: true, alarms });
+    } catch(err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  }
 
   const debug = req.query.debug === '1';
 
