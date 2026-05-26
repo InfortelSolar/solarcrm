@@ -740,32 +740,34 @@ const Pages = {
 
     // Card de integração ativa
     const cardAtivo = (nome, sigla, cor, plantas, online, url, descricao) => `
-      <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);">
-        <div style="width:40px;height:40px;border-radius:10px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${sigla}</div>
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:600;">${nome}</div>
-          <div style="font-size:11px;color:var(--text-secondary);">${url} · ${descricao}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-bottom:3px;">
-            <span style="width:7px;height:7px;background:#1D9E75;border-radius:50%;display:inline-block;"></span>
-            <span style="font-size:12px;font-weight:600;color:#1D9E75;">Ativo</span>
+      <div style="padding:12px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:8px;background:${cor}22;color:${cor};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${sigla}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:13px;font-weight:600;">${nome}</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#1D9E75;">
+                <span style="width:6px;height:6px;background:#1D9E75;border-radius:50%;display:inline-block;"></span>Ativo
+              </span>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${url} · ${descricao}</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${plantas} plantas · ${online} online · sync ${now}</div>
           </div>
-          <div style="font-size:11px;color:var(--text-secondary);">${plantas} plantas · ${online} online · sync ${now}</div>
         </div>
       </div>`;
 
     // Card de integração pendente
     const cardPendente = (nome, sigla, cor, plantas, motivo) => `
-      <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);">
-        <div style="width:40px;height:40px;border-radius:10px;background:#F3F4F6;color:#9CA3AF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${sigla}</div>
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:600;color:#6B7280;">${nome}</div>
-          <div style="font-size:11px;color:var(--text-secondary);">${motivo}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <span style="background:#FFF3CD;color:#856404;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;">⏳ Pendente</span>
-          <div style="font-size:11px;color:var(--text-secondary);margin-top:3px;">${plantas} plantas</div>
+      <div style="padding:12px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:8px;background:#F3F4F6;color:#9CA3AF;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${sigla}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:13px;font-weight:600;color:#6B7280;">${nome}</span>
+              <span style="background:#FFF3CD;color:#856404;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;">⏳ Pendente</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${motivo} · ${plantas} plantas</div>
+          </div>
         </div>
       </div>`;
 
