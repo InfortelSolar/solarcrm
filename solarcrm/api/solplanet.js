@@ -1,11 +1,5 @@
 /**
  * api/solplanet.js — Proxy SolPlanet / AiSWEI Cloud
- * Vercel Serverless Function
- *
- * Variáveis de ambiente:
- *   SOLPLANET_TOKEN      → User token (recebido por e-mail)
- *   SOLPLANET_APP_KEY    → AppKey (portal, configurações de segurança)
- *   SOLPLANET_APP_SECRET → AppSecret (portal, configurações de segurança)
  */
 
 import crypto from 'crypto';
@@ -38,47 +32,53 @@ export default async function handler(req, res) {
 
       case 'summary': {
         const plants = await getAllPlants(token, appKey, appSecret);
-
         let online = 0, offline = 0, warning = 0;
         let totalPowerKw = 0, totalEtodayKwh = 0, totalEtotalKwh = 0;
-
         for (const p of plants) {
           const s = String(p.status ?? '0');
-          if (s === '1')      online++;
+          if (s === '1') online++;
           else if (s === '2') warning++;
-          else                offline++;
+          else offline++;
           totalPowerKw   += parseFloat(p.totalpower ?? 0);
           totalEtodayKwh += parseFloat(p.etoday     ?? 0);
           totalEtotalKwh += parseFloat(p.etotal      ?? 0);
         }
-
         return res.status(200).json({
-          success: true,
-          source: 'solplanet',
-          summary: {
-            totalPlants: plants.length,
-            online, offline, warning,
-            totalPowerKw:   round(totalPowerKw),
-            totalEtodayKwh: round(totalEtodayKwh),
-            totalEtotalKwh: round(totalEtotalKwh),
-          },
+          success: true, source: 'solplanet',
+          summary: { totalPlants: plants.length, online, offline, warning,
+            totalPowerKw: round(totalPowerKw), totalEtodayKwh: round(totalEtodayKwh), totalEtotalKwh: round(totalEtotalKwh) },
           plants: plants.map(p => ({
-            id:         p.apikey,
-            name:       p.name,
-            status:     statusLabel(p.status),
-            statusCode: p.status,
-            powerKw:    p.totalpower ?? 0,
-            etodayKwh:  p.etoday    ?? 0,
-            etotalKwh:  p.etotal    ?? 0,
-            lastUpdate: p.ludt,
-            address:    p.position,
-            source:     'solplanet',
+            id: p.apikey, name: p.name, status: statusLabel(p.status),
+            statusCode: p.status, powerKw: p.totalpower ?? 0,
+            etodayKwh: p.etoday ?? 0, etotalKwh: p.etotal ?? 0,
+            lastUpdate: p.ludt, address: p.position, source: 'solplanet',
           }))
         });
       }
 
+      // ── Alarmes de uma planta específica ─────────────────
+      case 'alarms': {
+        const { plantId } = req.query;
+        if (!plantId) return res.status(400).json({ error: 'plantId obrigatório' });
+
+        const path = `/pro/getDeviceEventList?pageNum=1&pageSize=10&token=${token}&apikey=${plantId}&type=1`;
+        const data = await apiGet(path, appKey, appSecret);
+        const events = data?.data?.result || [];
+
+        return res.status(200).json({
+          success: true,
+          alarms: events.map(e => ({
+            code:    e.errorCode  || e.code || '—',
+            message: e.errorMsg   || e.msg  || e.content || 'Sem descrição',
+            advice:  e.solution   || e.advice || 'Consulte o manual do fabricante',
+            level:   e.level      || '—',
+            time:    e.createTime || e.time || null,
+          })),
+        });
+      }
+
       default:
-        return res.status(400).json({ error: `Action desconhecida: "${action}"`, available: ['summary', 'plants'] });
+        return res.status(400).json({ error: `Action desconhecida: "${action}"`, available: ['summary', 'plants', 'alarms'] });
     }
 
   } catch (err) {
@@ -87,14 +87,10 @@ export default async function handler(req, res) {
   }
 }
 
-// ─── Paginação automática ─────────────────────────────────────────────────────
 async function getAllPlants(token, appKey, appSecret) {
   let allPlants = [];
-  let pageNum = 1;
-  let totalPages = 1;
-
+  let pageNum = 1, totalPages = 1;
   do {
-    // Params em ordem ALFABÉTICA — obrigatório para assinatura Alibaba Cloud
     const path = `/pro/getPlanListPro?order=0&pageNum=${pageNum}&pageSize=50&token=${token}`;
     const data = await apiGet(path, appKey, appSecret);
     const list = data?.data?.result ?? [];
@@ -102,18 +98,15 @@ async function getAllPlants(token, appKey, appSecret) {
     totalPages = data?.data?.totalPages ?? 1;
     pageNum++;
   } while (pageNum <= totalPages);
-
   return allPlants;
 }
 
-// ─── Requisição GET com assinatura Alibaba Cloud API Gateway ─────────────────
 async function apiGet(path, appKey, appSecret) {
   const timestamp = Date.now().toString();
   const nonce     = crypto.randomUUID();
   const accept    = 'application/json';
   const date      = new Date().toUTCString();
 
-  // Headers que participam da assinatura (ordem lexicográfica)
   const signHeaders = {
     'x-ca-key':       appKey,
     'x-ca-nonce':     nonce,
@@ -121,50 +114,23 @@ async function apiGet(path, appKey, appSecret) {
   };
 
   const signHeaderNames = Object.keys(signHeaders).sort().join(',');
-
-  // Garante que query params estão em ordem alfabética
   const [pathOnly, queryString] = path.split('?');
-  const sortedQuery = (queryString || '')
-    .split('&')
-    .filter(Boolean)
-    .sort()
-    .join('&');
-  const sortedPath = sortedQuery ? `${pathOnly}?${sortedQuery}` : pathOnly;
+  const sortedQuery = (queryString || '').split('&').filter(Boolean).sort().join('&');
+  const sortedPath  = sortedQuery ? `${pathOnly}?${sortedQuery}` : pathOnly;
 
-  // StringToSign: GET\nAccept\nContent-MD5\nContent-Type\nDate\nHeaders\nUrl
-  const headersString = Object.keys(signHeaders).sort()
-    .map(k => `${k}:${signHeaders[k]}`)
-    .join('\n');
+  const headersString = Object.keys(signHeaders).sort().map(k => `${k}:${signHeaders[k]}`).join('\n');
+  const stringToSign  = ['GET', accept, '', '', date, headersString, sortedPath].join('\n');
 
-  const stringToSign = [
-    'GET',
-    accept,
-    '',
-    '',
-    date,
-    headersString,
-    sortedPath,
-  ].join('\n');
-
-  // Calcula HMAC-SHA256
-  const signature = crypto
-    .createHmac('sha256', appSecret)
-    .update(stringToSign, 'utf8')
-    .digest('base64');
-
+  const signature = crypto.createHmac('sha256', appSecret).update(stringToSign, 'utf8').digest('base64');
   const url = `${BASE_URL}${sortedPath}`;
 
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'Accept':                 accept,
-      'Date':                   date,
-      'X-Ca-Key':               appKey,
-      'X-Ca-Nonce':             nonce,
-      'X-Ca-Timestamp':         timestamp,
-      'X-Ca-Signature-Headers': signHeaderNames,
-      'X-Ca-Signature':         signature,
-      'X-Ca-Stage':             'RELEASE',
+      'Accept': accept, 'Date': date,
+      'X-Ca-Key': appKey, 'X-Ca-Nonce': nonce,
+      'X-Ca-Timestamp': timestamp, 'X-Ca-Signature-Headers': signHeaderNames,
+      'X-Ca-Signature': signature, 'X-Ca-Stage': 'RELEASE',
     }
   });
 
@@ -175,9 +141,7 @@ async function apiGet(path, appKey, appSecret) {
   }
 
   const json = await response.json();
-  if (json.status && json.status !== 200) {
-    throw new Error(`API erro ${json.status}: ${json.info || 'sem mensagem'}`);
-  }
+  if (json.status && json.status !== 200) throw new Error(`API erro ${json.status}: ${json.info || 'sem mensagem'}`);
   return json;
 }
 
