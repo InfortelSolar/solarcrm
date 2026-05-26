@@ -149,16 +149,28 @@ const App = {
   },
 
   bindMenu() {
-    document.getElementById('menu-toggle').addEventListener('click', () => {
-      document.getElementById('sidebar').classList.toggle('open');
-    });
-    document.addEventListener('click', e => {
-      const sidebar = document.getElementById('sidebar');
-      const toggle  = document.getElementById('menu-toggle');
-      if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== toggle) {
+    const toggle  = document.getElementById('menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+
+    // Suporte a touch e click para melhor resposta no mobile
+    const toggleMenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sidebar.classList.toggle('open');
+    };
+
+    toggle.addEventListener('click', toggleMenu);
+    toggle.addEventListener('touchend', toggleMenu, { passive: false });
+
+    // Fecha ao clicar/tocar fora
+    const closeMenu = (e) => {
+      if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== toggle && !toggle.contains(e.target)) {
         sidebar.classList.remove('open');
       }
-    });
+    };
+
+    document.addEventListener('click', closeMenu);
+    document.addEventListener('touchend', closeMenu, { passive: true });
   },
 
   bindModal() {
