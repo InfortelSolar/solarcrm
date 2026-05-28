@@ -4,7 +4,15 @@
 //  Vars: SOFAR_APP_ID, SOFAR_APP_SECRET, SOFAR_EMAIL, SOFAR_PASSWORD
 // ============================================================
 
-const BASE = 'https://eu.sofarcloud.com/api/openapi';
+// Tenta múltiplos servidores SofarCloud/SOLARMAN
+const SERVERS = [
+  'https://globalpro.solarmanpv.com/api/openapi',
+  'https://globalapi.solarmanpv.com/api/openapi',
+  'https://globalpro.solarmanpv.com',
+  'https://globalapi.solarmanpv.com',
+  'https://eu.sofarcloud.com/api/openapi',
+];
+let BASE = SERVERS[0];
 
 let _tokenCache = { token: null, expiresAt: 0 };
 
@@ -12,29 +20,43 @@ async function getToken() {
   const now = Date.now();
   if (_tokenCache.token && now < _tokenCache.expiresAt) return _tokenCache.token;
 
-  const res = await fetch(`${BASE}/account/v2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      appId:       Number(process.env.SOFAR_APP_ID) || process.env.SOFAR_APP_ID,
-      appSecret:   String(process.env.SOFAR_APP_SECRET || '').trim(),
-      accountName: String(process.env.SOFAR_EMAIL || '').trim(),
-      accountType: 3,
-      password:    String(process.env.SOFAR_PASSWORD || '').trim(),
-    }),
-  });
+  const body = {
+    appId:       Number(process.env.SOFAR_APP_ID) || process.env.SOFAR_APP_ID,
+    appSecret:   String(process.env.SOFAR_APP_SECRET || '').trim(),
+    accountName: String(process.env.SOFAR_EMAIL || '').trim(),
+    accountType: 3,
+    password:    String(process.env.SOFAR_PASSWORD || '').trim(),
+  };
 
-  if (!res.ok) throw new Error(`Sofar auth HTTP ${res.status}`);
-  const json = await res.json();
-  if (json.code !== '200' && json.code !== 200)
-    throw new Error(`Sofar auth falhou: ${json.message}`);
+  const errors = [];
+  for (const server of SERVERS) {
+    try {
+      const res = await fetch(`${server}/account/v2/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10000),
+      });
 
-  const token = json.data?.token;
-  if (!token) throw new Error('Sofar: token não retornado');
+      if (!res.ok) { errors.push(`${server}: HTTP ${res.status}`); continue; }
+      const json = await res.json();
 
-  // Token válido por 30 dias — cache por 29 dias
-  _tokenCache = { token, expiresAt: now + 29 * 24 * 60 * 60 * 1000 };
-  return token;
+      if (json.code !== '200' && json.code !== 200) {
+        errors.push(`${server}: ${json.message}`); continue;
+      }
+
+      const token = json.data?.token;
+      if (!token) { errors.push(`${server}: token vazio`); continue; }
+
+      BASE = server; // usa o servidor que funcionou
+      _tokenCache = { token, expiresAt: now + 29 * 24 * 60 * 60 * 1000 };
+      return token;
+    } catch(e) {
+      errors.push(`${server}: ${e.message}`);
+    }
+  }
+
+  throw new Error(`Nenhum servidor funcionou: ${errors.join(' | ')}`);
 }
 
 async function sofarPost(path, token, body = {}) {
