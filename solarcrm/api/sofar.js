@@ -6,7 +6,7 @@
 
 import crypto from 'crypto';
 
-const BASE = 'https://globalpro.solarmanpv.com';
+const BASE = 'https://api.solarmanpv.com';
 
 let _tokenCache = { token: null, expiresAt: 0 };
 
