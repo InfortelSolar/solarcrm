@@ -94,10 +94,33 @@ module.exports = async (req, res) => {
     if (json.error_code === 0) {
       const plants = json.data?.plants || json.data?.datas || [];
       if (plants.length > 0) {
+        // Busca detalhes de energia em paralelo para todas as plantas
+        const details = await Promise.all(
+          plants.map(async (p) => {
+            const pid = p.plant_id || p.id;
+            try {
+              const d = await fetchWithToken(
+                `${SERVER}/v1/plant/detail`,
+                token, { plant_id: String(pid) }, 'GET'
+              );
+              if (debug) debugLog.push({ endpoint: `detail-${pid}`, response: d?.data });
+              return { plant_id: pid, data: d?.data || {} };
+            } catch(_) { return { plant_id: pid, data: {} }; }
+          })
+        );
+        const detailMap = {};
+        details.forEach(d => { detailMap[String(d.plant_id)] = d.data; });
+
+        const normalized = plants.map(p => {
+          const pid = String(p.plant_id || p.id);
+          const det = detailMap[pid] || {};
+          return normalizePlant({ ...p, ...det });
+        });
+
         return res.status(200).json({
           ok: true, source: 'growatt',
-          total: plants.length,
-          data: plants.map(normalizePlant),
+          total: normalized.length,
+          data: normalized,
           ...(debug ? { debugLog } : {}),
         });
       }
