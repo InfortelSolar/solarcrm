@@ -16,11 +16,11 @@ async function getToken() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      appId:       process.env.SOFAR_APP_ID,
-      appSecret:   process.env.SOFAR_APP_SECRET,
-      accountName: process.env.SOFAR_EMAIL,
-      accountType: 3, // 3 = email
-      password:    process.env.SOFAR_PASSWORD,
+      appId:       Number(process.env.SOFAR_APP_ID) || process.env.SOFAR_APP_ID,
+      appSecret:   String(process.env.SOFAR_APP_SECRET || '').trim(),
+      accountName: String(process.env.SOFAR_EMAIL || '').trim(),
+      accountType: 3,
+      password:    String(process.env.SOFAR_PASSWORD || '').trim(),
     }),
   });
 
