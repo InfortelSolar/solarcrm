@@ -70,7 +70,19 @@ module.exports = async (req, res) => {
   const debugLog = [];
 
   if (!token) {
-    return res.status(500).json({ ok: false, error: 'GROWATT_TOKEN não configurado' });
+    // ── Detalhes de uma planta específica ───────────────────
+  if (req.query.plantId) {
+    try {
+      const plantId = req.query.plantId;
+      const url = `${SERVER}/v1/plant/energy?plant_id=${plantId}&time_unit=day&date=${new Date().toISOString().slice(0,10)}`;
+      const json = await fetchWithToken(url, token, {}, 'GET');
+      return res.status(200).json({ ok: true, plantId, data: json });
+    } catch(err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  }
+
+  return res.status(500).json({ ok: false, error: 'GROWATT_TOKEN não configurado' });
   }
 
   // ── Tentativa 1: GET /v1/plant/list ──────────────────────
