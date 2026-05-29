@@ -123,9 +123,9 @@ const Solis = (() => {
       const plants = await fetchPlants();
       const m      = calcMetrics(plants);
 
-      DB.clientes   = plants.map((p)    => plantToCliente(p));
-      DB.inversores = plants.map((p, i) => plantToInversor(p, i));
-      DB.alertas    = m.alerts.map((p)  => plantToAlerta(p));
+      DB.clientes   = [...(DB.clientes   || []), ...plants.map((p)    => plantToCliente(p))];
+      DB.inversores = [...(DB.inversores || []), ...plants.map((p, i) => plantToInversor(p, i))];
+      DB.alertas    = [...(DB.alertas    || []), ...m.alerts.map((p)  => plantToAlerta(p))];
 
       DB.dashKpis.clientesAtivos = (DB.dashKpis.clientesAtivos || 0) + m.total;
       DB.dashKpis.alertasAtivos  = (DB.dashKpis.alertasAtivos  || 0) + m.alerts.length;
