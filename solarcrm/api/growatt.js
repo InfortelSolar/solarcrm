@@ -20,8 +20,8 @@ function normalizePlant(p) {
     status,
     manufacturer:  'Growatt',
     power:         power.toFixed(2),
-    energyDay:     parseFloat(p.today_energy  || p.energyDay   || p.eDay   || 0).toFixed(2),
-    energyMonth:   parseFloat(p.month_energy  || p.energyMonth || p.eMonth || 0).toFixed(2),
+    energyDay:     parseFloat(p.today_energy   || p.energyDay   || p.eDay   || 0).toFixed(2),
+    energyMonth:   parseFloat(p.monthly_energy || p.month_energy || p.energyMonth || p.eMonth || 0).toFixed(2),
     energyTotal:   parseFloat(p.total_energy  || p.energyTotal || p.eTotal || 0).toFixed(2),
     current_power: parseFloat(p.current_power || p.power || 0).toFixed(2),
     updated_at:    p.last_update_time || p.lastUpdateTime || new Date().toISOString(),
@@ -118,7 +118,7 @@ module.exports = async (req, res) => {
         const normalized = plants.map(p => {
           const pid = String(p.plant_id || p.id);
           const en = energyMap[pid] || {};
-          return normalizePlant({ ...p, today_energy: en.today_energy, month_energy: en.month_energy });
+          return normalizePlant({ ...p, today_energy: en.today_energy, monthly_energy: en.month_energy });
         });
 
         return res.status(200).json({
