@@ -156,7 +156,15 @@ const Pages = {
         <div style="padding:12px 16px;border-top:1px solid var(--border);margin-top:auto;">
           <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Fabricantes monitorados</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            ${Object.entries(DB.inversores.reduce((acc,i)=>{ const m=i.modelo.split(' ')[0]; acc[m]=(acc[m]||0)+1; return acc; },{})).slice(0,6).map(([fab,count]) => `
+            ${Object.entries(DB.inversores.reduce((acc,i)=>{
+              const api = i.api || '';
+              let fab = i.modelo.split(' ')[0];
+              if (api.includes('Fronius') || i.sigla === 'FRO') fab = 'Fronius';
+              else if (api.includes('SolPlanet') || i.sigla === 'SP') fab = 'SolPlanet';
+              else if (api.includes('Growatt') || i.sigla === 'GRO') fab = 'Growatt';
+              else if (api.includes('Solis') || i.sigla === 'SOL') fab = 'Solis';
+              acc[fab]=(acc[fab]||0)+1; return acc;
+            },{})).map(([fab,count]) => `
               <span style="background:var(--bg-secondary);padding:3px 8px;border-radius:10px;font-size:11px;color:var(--text-secondary);">${fab} (${count})</span>`).join('')}
           </div>
         </div>
