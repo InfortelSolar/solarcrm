@@ -101,33 +101,32 @@ export default async function handler(req, res) {
   if (req.query.history === '1' && req.query.stationId) {
     try {
       if (req.query.date) {
-        // stationDay retorna leituras intraday — pega a última leitura do dia
+        // stationDay retorna leituras intraday em Wh — pega a última leitura e divide por 1000
         const json = await solisRequest('/v1/api/stationDay', {
           id: req.query.stationId, time: req.query.date, money: '0',
         });
-        // Tenta campo direto primeiro, depois última leitura do array
-        let energy = json?.data?.energy ?? json?.data?.eDay ?? null;
-        if (energy === null || energy === 0) {
-          const records = json?.data?.records || json?.data || [];
-          if (Array.isArray(records) && records.length > 0) {
-            const last = records[records.length - 1];
-            energy = last?.produceEnergy ?? last?.energy ?? last?.eToday ?? 0;
-          }
+        const records = Array.isArray(json?.data) ? json.data : (json?.data?.records || []);
+        let energy = 0;
+        if (records.length > 0) {
+          const last = records[records.length - 1];
+          // produceEnergy está em Wh — converte para kWh
+          energy = parseFloat((last?.produceEnergy ?? last?.energy ?? 0) / 1000);
         }
-        return res.status(200).json({ ok: true, energy: parseFloat(energy || 0), raw: json?.data });
+        return res.status(200).json({ ok: true, energy: parseFloat(energy.toFixed(2)) });
       }
       if (req.query.month) {
+        // stationMonth retorna leituras por dia — soma produceEnergy e divide por 1000
         const json = await solisRequest('/v1/api/stationMonth', {
           id: req.query.stationId, time: req.query.month, money: '0',
         });
-        let energy = json?.data?.energy ?? json?.data?.eMonth ?? null;
-        if (energy === null || energy === 0) {
-          const records = json?.data?.records || json?.data || [];
-          if (Array.isArray(records) && records.length > 0) {
-            energy = records.reduce((s, r) => s + parseFloat(r.produceEnergy || r.energy || 0), 0);
-          }
+        const records = Array.isArray(json?.data) ? json.data : (json?.data?.records || []);
+        let energy = 0;
+        if (records.length > 0) {
+          // Cada registro tem o acumulado do dia — pega o último (total do mês)
+          const last = records[records.length - 1];
+          energy = parseFloat((last?.produceEnergy ?? last?.energy ?? 0) / 1000);
         }
-        return res.status(200).json({ ok: true, energy: parseFloat(energy || 0), raw: json?.data });
+        return res.status(200).json({ ok: true, energy: parseFloat(energy.toFixed(2)) });
       }
       return res.status(400).json({ ok: false, error: 'Informe date ou month' });
     } catch(err) {
