@@ -102,16 +102,17 @@ export default async function handler(req, res) {
     try {
       if (req.query.date) {
         // Usa stationDayEnergyList para buscar dayEnergy de uma data específica
+        const stationId = req.query.stationId;
         const json = await solisRequest('/v1/api/stationDayEnergyList', {
-          id: req.query.stationId,
+          id: stationId,
           time: req.query.date,
           pageNo: 1,
-          pageSize: 1,
+          pageSize: 100,
         });
         const records = json?.data?.records || json?.data?.page?.records || [];
-        const energy = records.length > 0
-          ? parseFloat(records[0]?.energy ?? records[0]?.dayEnergy ?? 0)
-          : 0;
+        // Filtra pelo ID da planta correta
+        const record = records.find(r => String(r.id) === String(stationId)) || records[0];
+        const energy = record ? parseFloat(record?.energy ?? record?.dayEnergy ?? 0) : 0;
         return res.status(200).json({ ok: true, energy });
       }
       if (req.query.month) {
