@@ -110,9 +110,9 @@ export default async function handler(req, res) {
         });
         const records = json?.data?.records || json?.data?.page?.records || [];
         const energy = records.length > 0
-          ? parseFloat(records[0]?.dayEnergy ?? 0)
+          ? parseFloat(records[0]?.energy ?? records[0]?.dayEnergy ?? 0)
           : 0;
-        return res.status(200).json({ ok: true, energy, raw: json?.data });
+        return res.status(200).json({ ok: true, energy });
       }
       if (req.query.month) {
         // Usa stationMonth para buscar energia de cada dia do mês
@@ -121,7 +121,7 @@ export default async function handler(req, res) {
         });
         const records = Array.isArray(json?.data) ? json.data : (json?.data?.records || []);
         // stationMonth retorna dayEnergy por dia — soma tudo
-        const energy = records.reduce((s, r) => s + parseFloat(r?.dayEnergy ?? r?.energy ?? 0), 0);
+        const energy = records.reduce((s, r) => s + parseFloat(r?.energy ?? r?.dayEnergy ?? 0), 0);
         return res.status(200).json({ ok: true, energy: parseFloat(energy.toFixed(2)) });
       }
       return res.status(400).json({ ok: false, error: 'Informe date ou month' });
