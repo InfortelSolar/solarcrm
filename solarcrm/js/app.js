@@ -26,10 +26,13 @@ const App = {
     this.bindModal()
     this.bindTopbar()
     this.bindMenu()
-    await Solis.load()
-    await SolPlanet.load()
-    await Fronius.load()
-    await this.loadConfig()
+    await Promise.all([
+      Solis.load(),
+      SolPlanet.load(),
+      Fronius.load(),
+      Growatt.load(),
+      this.loadConfig(),
+    ])
     this.render('dashboard')
     const badge = document.getElementById('badge-alertas')
     if (badge) badge.textContent = DB.alertas.length
@@ -421,9 +424,7 @@ const App = {
 
   async recarregarDados() {
     this.toast('Atualizando dados...');
-    await Solis.load();
-    await SolPlanet.load();
-    await Fronius.load();
+    await Promise.all([Solis.load(), SolPlanet.load(), Fronius.load(), Growatt.load()]);
     this.render(this.currentPage);
     const badge = document.getElementById('badge-alertas');
     if (badge) badge.textContent = DB.alertas.length;
