@@ -56,6 +56,43 @@ export default async function handler(req, res) {
         });
       }
 
+      // ── Energia de um dia específico ─────────────────────
+      case 'dayEnergy': {
+        const { plantId, date } = req.query;
+        if (!plantId || !date) return res.status(400).json({ error: 'plantId e date obrigatórios' });
+
+        // Formato: YYYY-MM-DD → YYYYMMDD
+        const dateFormatted = date.replace(/-/g, '');
+        const path = `/pro/getStationEnergyByDay?token=${token}&apikey=${plantId}&date=${dateFormatted}`;
+        const data = await apiGet(path, appKey, appSecret);
+
+        // Tenta vários campos possíveis
+        const energy = parseFloat(
+          data?.data?.etoday  ?? data?.data?.energy   ??
+          data?.data?.dayEnergy ?? data?.data?.eDay   ??
+          data?.data?.result?.etoday ?? data?.data?.result?.energy ?? 0
+        );
+        return res.status(200).json({ ok: true, energy, raw: data?.data });
+      }
+
+      // ── Energia de um mês específico ─────────────────────
+      case 'monthEnergy': {
+        const { plantId, month } = req.query;
+        if (!plantId || !month) return res.status(400).json({ error: 'plantId e month obrigatórios' });
+
+        // Formato: YYYY-MM → YYYYMM
+        const monthFormatted = month.replace(/-/g, '');
+        const path = `/pro/getStationEnergyByMonth?token=${token}&apikey=${plantId}&date=${monthFormatted}`;
+        const data = await apiGet(path, appKey, appSecret);
+
+        const energy = parseFloat(
+          data?.data?.emonth ?? data?.data?.energy    ??
+          data?.data?.monthEnergy ?? data?.data?.eMonth ??
+          data?.data?.result?.emonth ?? data?.data?.result?.energy ?? 0
+        );
+        return res.status(200).json({ ok: true, energy, raw: data?.data });
+      }
+
       // ── Alarmes de uma planta específica ─────────────────
       case 'alarms': {
         const { plantId } = req.query;
@@ -78,7 +115,7 @@ export default async function handler(req, res) {
       }
 
       default:
-        return res.status(400).json({ error: `Action desconhecida: "${action}"`, available: ['summary', 'plants', 'alarms'] });
+        return res.status(400).json({ error: `Action desconhecida: "${action}"`, available: ['summary', 'plants', 'alarms', 'dayEnergy', 'monthEnergy'] });
     }
 
   } catch (err) {
