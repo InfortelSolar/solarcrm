@@ -72,28 +72,49 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok: false, error: 'SOLIS_KEY_ID ou SOLIS_KEY_SECRET não configurados' });
   }
 
-  // ── Endpoint de alarmes de uma planta específica ──────────
+  // ── Alarmes de uma planta ─────────────────────────────────
   if (req.query.alarms === '1' && req.query.stationId) {
     try {
       const json = await solisRequest('/v1/api/alarmList', {
-        pageNo:    1,
-        pageSize:  10,
+        pageNo: 1, pageSize: 10,
         stationId: req.query.stationId,
-        state:     '0', // 0=pendente, 1=resolvido
+        state: '0',
       });
-
       const alarms = json?.data?.records || [];
       return res.status(200).json({
         ok: true,
         alarms: alarms.map(a => ({
-          code:        a.alarmCode    || '—',
-          level:       a.alarmLevel   || '—', // 1=aviso 2=normal 3=urgente
-          message:     a.alarmMsg     || 'Sem descrição',
-          advice:      a.advice       || 'Consulte o manual do fabricante',
-          startTime:   a.alarmBeginTime || null,
-          status:      a.state        || '0',
+          code:      a.alarmCode  || '—',
+          level:     a.alarmLevel || '—',
+          message:   a.alarmMsg   || 'Sem descrição',
+          advice:    a.advice     || 'Consulte o manual do fabricante',
+          startTime: a.alarmBeginTime || null,
+          status:    a.state || '0',
         })),
       });
+    } catch(err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  }
+
+  // ── Histórico por dia ou mês ──────────────────────────────
+  if (req.query.history === '1' && req.query.stationId) {
+    try {
+      if (req.query.date) {
+        const json = await solisRequest('/v1/api/stationDay', {
+          id: req.query.stationId, time: req.query.date, money: '0',
+        });
+        const energy = json?.data?.energy ?? json?.data?.eDay ?? 0;
+        return res.status(200).json({ ok: true, energy: parseFloat(energy) });
+      }
+      if (req.query.month) {
+        const json = await solisRequest('/v1/api/stationMonth', {
+          id: req.query.stationId, time: req.query.month, money: '0',
+        });
+        const energy = json?.data?.energy ?? json?.data?.eMonth ?? 0;
+        return res.status(200).json({ ok: true, energy: parseFloat(energy) });
+      }
+      return res.status(400).json({ ok: false, error: 'Informe date ou month' });
     } catch(err) {
       return res.status(500).json({ ok: false, error: err.message });
     }
