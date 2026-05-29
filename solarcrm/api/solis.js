@@ -112,7 +112,7 @@ export default async function handler(req, res) {
         const energy = records.length > 0
           ? parseFloat(records[0]?.dayEnergy ?? 0)
           : 0;
-        return res.status(200).json({ ok: true, energy });
+        return res.status(200).json({ ok: true, energy, raw: json?.data });
       }
       if (req.query.month) {
         // Usa stationMonth para buscar energia de cada dia do mês
