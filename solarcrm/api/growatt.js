@@ -99,34 +99,20 @@ module.exports = async (req, res) => {
     if (json.error_code === 0) {
       const plants = json.data?.plants || json.data?.datas || [];
       if (plants.length > 0) {
-        // Busca energia do dia e mês via /v1/plant/energy em paralelo
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        const yearMonth = today.slice(0, 7); // YYYY-MM
-
+        // Busca energia via /v1/plant/data em paralelo
         const energyData = await Promise.all(
           plants.map(async (p) => {
             const pid = String(p.plant_id || p.id);
             try {
-              // Energia do dia
-              const dayRes = await fetchWithToken(
-                `${SERVER}/v1/plant/energy`,
-                token, { plant_id: pid, time_unit: 'day', date: today }, 'GET'
+              const d = await fetchWithToken(
+                `${SERVER}/v1/plant/data`,
+                token, { plant_id: pid }, 'GET'
               );
-              // Energia do mês
-              const monthRes = await fetchWithToken(
-                `${SERVER}/v1/plant/energy`,
-                token, { plant_id: pid, time_unit: 'month', date: yearMonth }, 'GET'
-              );
-              if (debug) debugLog.push({ 
-                endpoint: `energy-${pid}`, 
-                day: dayRes?.data, 
-                dayFull: dayRes,
-                month: monthRes?.data,
-              });
+              if (debug) debugLog.push({ endpoint: `data-${pid}`, response: d?.data });
               return {
-                plant_id: pid,
-                today_energy: dayRes?.data?.energy ?? dayRes?.data?.eDay ?? 0,
-                month_energy: monthRes?.data?.energy ?? monthRes?.data?.eMonth ?? 0,
+                plant_id:     pid,
+                today_energy: d?.data?.today_energy   ?? 0,
+                month_energy: d?.data?.monthly_energy ?? 0,
               };
             } catch(_) { return { plant_id: pid, today_energy: 0, month_energy: 0 }; }
           })
