@@ -94,27 +94,41 @@ module.exports = async (req, res) => {
     if (json.error_code === 0) {
       const plants = json.data?.plants || json.data?.datas || [];
       if (plants.length > 0) {
-        // Busca detalhes de energia em paralelo para todas as plantas
-        const details = await Promise.all(
+        // Busca energia do dia e mês via /v1/plant/energy em paralelo
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const yearMonth = today.slice(0, 7); // YYYY-MM
+
+        const energyData = await Promise.all(
           plants.map(async (p) => {
-            const pid = p.plant_id || p.id;
+            const pid = String(p.plant_id || p.id);
             try {
-              const d = await fetchWithToken(
-                `${SERVER}/v1/plant/detail`,
-                token, { plant_id: String(pid) }, 'GET'
+              // Energia do dia
+              const dayRes = await fetchWithToken(
+                `${SERVER}/v1/plant/energy`,
+                token, { plant_id: pid, time_unit: 'day', date: today }, 'GET'
               );
-              if (debug) debugLog.push({ endpoint: `detail-${pid}`, response: d?.data });
-              return { plant_id: pid, data: d?.data || {} };
-            } catch(_) { return { plant_id: pid, data: {} }; }
+              // Energia do mês
+              const monthRes = await fetchWithToken(
+                `${SERVER}/v1/plant/energy`,
+                token, { plant_id: pid, time_unit: 'month', date: yearMonth }, 'GET'
+              );
+              if (debug) debugLog.push({ endpoint: `energy-${pid}`, day: dayRes?.data, month: monthRes?.data });
+              return {
+                plant_id: pid,
+                today_energy: dayRes?.data?.energy ?? dayRes?.data?.eDay ?? 0,
+                month_energy: monthRes?.data?.energy ?? monthRes?.data?.eMonth ?? 0,
+              };
+            } catch(_) { return { plant_id: pid, today_energy: 0, month_energy: 0 }; }
           })
         );
-        const detailMap = {};
-        details.forEach(d => { detailMap[String(d.plant_id)] = d.data; });
+
+        const energyMap = {};
+        energyData.forEach(d => { energyMap[d.plant_id] = d; });
 
         const normalized = plants.map(p => {
           const pid = String(p.plant_id || p.id);
-          const det = detailMap[pid] || {};
-          return normalizePlant({ ...p, ...det });
+          const en = energyMap[pid] || {};
+          return normalizePlant({ ...p, today_energy: en.today_energy, month_energy: en.month_energy });
         });
 
         return res.status(200).json({
