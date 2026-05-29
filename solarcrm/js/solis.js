@@ -46,7 +46,7 @@ const Solis = (() => {
 
   function plantToCliente(p) {
     const status = (p.status || '').toUpperCase();
-    const st = status === 'OK' ? 'ok' : 'warn'; // Solis: offline = warn, nunca err
+    const st = status === 'OK' ? 'ok' : 'warn';
     const initials = p.name.split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase();
     const bgMap = { ok: '#E1F5EE', warn: '#FAEEDA', err: '#FCEBEB' };
     const corMap = { ok: '#0F6E56', warn: '#854F0B', err: '#A32D2D' };
@@ -100,12 +100,10 @@ const Solis = (() => {
   }
 
   function plantToAlerta(p) {
-    const alarmCount         = parseInt(p.alarmCount || 0);
+    const alarmCount          = parseInt(p.alarmCount || 0);
     const inverterOnlineCount = parseInt(p.inverterOnlineCount || 0);
-    const inverterCount      = parseInt(p.inverterCount || 0);
+    const inverterCount       = parseInt(p.inverterCount || 0);
 
-    // Solis: todas as plantas offline são tipoAlerta 'offline'
-    // alarmCount é usado apenas no diagnóstico para enriquecer informação
     return {
       id: p.id,
       tipo: 'warn',
@@ -129,10 +127,10 @@ const Solis = (() => {
       DB.inversores = plants.map((p, i) => plantToInversor(p, i));
       DB.alertas    = m.alerts.map((p)  => plantToAlerta(p));
 
-      DB.dashKpis.clientesAtivos = m.total;
-      DB.dashKpis.alertasAtivos  = m.alerts.length;
-      DB.dashKpis.geracaoHoje    = parseFloat(m.totalEnergyDay.toFixed(2));
-      DB.dashKpis.economiaMes    = Math.round(m.totalEnergyMonth * 0.82);
+      DB.dashKpis.clientesAtivos = (DB.dashKpis.clientesAtivos || 0) + m.total;
+      DB.dashKpis.alertasAtivos  = (DB.dashKpis.alertasAtivos  || 0) + m.alerts.length;
+      DB.dashKpis.geracaoHoje    = parseFloat(((DB.dashKpis.geracaoHoje || 0) + m.totalEnergyDay).toFixed(2));
+      DB.dashKpis.economiaMes    = Math.round(((DB.dashKpis.economiaMes || 0) + m.totalEnergyMonth * 0.82));
 
       const base = m.totalEnergyDay;
       DB.dashKpis.geracaoDias = [
