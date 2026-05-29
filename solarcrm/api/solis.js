@@ -101,31 +101,27 @@ export default async function handler(req, res) {
   if (req.query.history === '1' && req.query.stationId) {
     try {
       if (req.query.date) {
-        // stationDay retorna leituras intraday em Wh — pega a última leitura e divide por 1000
-        const json = await solisRequest('/v1/api/stationDay', {
-          id: req.query.stationId, time: req.query.date, money: '0',
+        // Usa stationDayEnergyList para buscar dayEnergy de uma data específica
+        const json = await solisRequest('/v1/api/stationDayEnergyList', {
+          id: req.query.stationId,
+          time: req.query.date,
+          pageNo: 1,
+          pageSize: 1,
         });
-        const records = Array.isArray(json?.data) ? json.data : (json?.data?.records || []);
-        let energy = 0;
-        if (records.length > 0) {
-          const last = records[records.length - 1];
-          // produceEnergy está em Wh — converte para kWh
-          energy = parseFloat((last?.produceEnergy ?? last?.energy ?? 0) / 1000);
-        }
-        return res.status(200).json({ ok: true, energy: parseFloat(energy.toFixed(2)) });
+        const records = json?.data?.records || json?.data?.page?.records || [];
+        const energy = records.length > 0
+          ? parseFloat(records[0]?.dayEnergy ?? 0)
+          : 0;
+        return res.status(200).json({ ok: true, energy });
       }
       if (req.query.month) {
-        // stationMonth retorna leituras por dia — soma produceEnergy e divide por 1000
+        // Usa stationMonth para buscar energia de cada dia do mês
         const json = await solisRequest('/v1/api/stationMonth', {
           id: req.query.stationId, time: req.query.month, money: '0',
         });
         const records = Array.isArray(json?.data) ? json.data : (json?.data?.records || []);
-        let energy = 0;
-        if (records.length > 0) {
-          // Cada registro tem o acumulado do dia — pega o último (total do mês)
-          const last = records[records.length - 1];
-          energy = parseFloat((last?.produceEnergy ?? last?.energy ?? 0) / 1000);
-        }
+        // stationMonth retorna dayEnergy por dia — soma tudo
+        const energy = records.reduce((s, r) => s + parseFloat(r?.dayEnergy ?? r?.energy ?? 0), 0);
         return res.status(200).json({ ok: true, energy: parseFloat(energy.toFixed(2)) });
       }
       return res.status(400).json({ ok: false, error: 'Informe date ou month' });
