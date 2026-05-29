@@ -70,19 +70,24 @@ module.exports = async (req, res) => {
   const debugLog = [];
 
   if (!token) {
-    // ── Detalhes de uma planta específica ───────────────────
-  if (req.query.plantId) {
+    return res.status(500).json({ ok: false, error: 'GROWATT_TOKEN não configurado' });
+  }
+
+  // ── Teste de energia de uma planta específica ────────────
+  if (req.query.testEnergy) {
     try {
-      const plantId = req.query.plantId;
-      const url = `${SERVER}/v1/plant/energy?plant_id=${plantId}&time_unit=day&date=${new Date().toISOString().slice(0,10)}`;
-      const json = await fetchWithToken(url, token, {}, 'GET');
-      return res.status(200).json({ ok: true, plantId, data: json });
+      const pid   = req.query.testEnergy;
+      const today = new Date().toISOString().slice(0, 10);
+      const ym    = today.slice(0, 7);
+
+      const r1 = await fetchWithToken(`${SERVER}/v1/plant/energy`, token, { plant_id: pid, time_unit: 'day',   date: today }, 'GET');
+      const r2 = await fetchWithToken(`${SERVER}/v1/plant/energy`, token, { plant_id: pid, time_unit: 'month', date: ym    }, 'GET');
+      const r3 = await fetchWithToken(`${SERVER}/v1/plant/energy`, token, { plant_id: pid, time_unit: 'year',  date: '2026' }, 'GET');
+
+      return res.status(200).json({ ok: true, pid, today, ym, day: r1, month: r2, year: r3 });
     } catch(err) {
       return res.status(500).json({ ok: false, error: err.message });
     }
-  }
-
-  return res.status(500).json({ ok: false, error: 'GROWATT_TOKEN não configurado' });
   }
 
   // ── Tentativa 1: GET /v1/plant/list ──────────────────────
@@ -112,7 +117,12 @@ module.exports = async (req, res) => {
                 `${SERVER}/v1/plant/energy`,
                 token, { plant_id: pid, time_unit: 'month', date: yearMonth }, 'GET'
               );
-              if (debug) debugLog.push({ endpoint: `energy-${pid}`, day: dayRes?.data, month: monthRes?.data });
+              if (debug) debugLog.push({ 
+                endpoint: `energy-${pid}`, 
+                day: dayRes?.data, 
+                dayFull: dayRes,
+                month: monthRes?.data,
+              });
               return {
                 plant_id: pid,
                 today_energy: dayRes?.data?.energy ?? dayRes?.data?.eDay ?? 0,
