@@ -61,18 +61,35 @@ export default async function handler(req, res) {
         const { plantId, date } = req.query;
         if (!plantId || !date) return res.status(400).json({ error: 'plantId e date obrigatórios' });
 
-        // Formato: YYYY-MM-DD → YYYYMMDD
+        // Tenta múltiplos endpoints possíveis
         const dateFormatted = date.replace(/-/g, '');
-        const path = `/pro/getStationEnergyByDay?token=${token}&apikey=${plantId}&date=${dateFormatted}`;
-        const data = await apiGet(path, appKey, appSecret);
+        const endpoints = [
+          `/pro/getPlanEnergyByDate?token=${token}&apikey=${plantId}&date=${dateFormatted}`,
+          `/pro/getPlantEnergyDay?token=${token}&apikey=${plantId}&date=${dateFormatted}`,
+          `/pro/getPlanListPro?order=0&pageNum=1&pageSize=50&token=${token}`,
+        ];
 
-        // Tenta vários campos possíveis
-        const energy = parseFloat(
-          data?.data?.etoday  ?? data?.data?.energy   ??
-          data?.data?.dayEnergy ?? data?.data?.eDay   ??
-          data?.data?.result?.etoday ?? data?.data?.result?.energy ?? 0
-        );
-        return res.status(200).json({ ok: true, energy, raw: data?.data });
+        for (const path of endpoints) {
+          try {
+            const data = await apiGet(path, appKey, appSecret);
+            // Se for a lista de plantas, pega etoday da planta correta
+            if (path.includes('getPlanListPro')) {
+              const plants = data?.data?.result ?? [];
+              const plant = plants.find(p => p.apikey === plantId);
+              if (plant) {
+                const today = new Date().toISOString().slice(0,10);
+                const energy = date === today ? parseFloat(plant.etoday ?? 0) : 0;
+                return res.status(200).json({ ok: true, energy, source: 'etoday' });
+              }
+            }
+            const energy = parseFloat(
+              data?.data?.etoday ?? data?.data?.energy ??
+              data?.data?.dayEnergy ?? data?.data?.eDay ?? 0
+            );
+            if (energy > 0) return res.status(200).json({ ok: true, energy });
+          } catch(e) { /* tenta próximo */ }
+        }
+        return res.status(200).json({ ok: true, energy: 0 });
       }
 
       // ── Energia de um mês específico ─────────────────────
@@ -80,17 +97,33 @@ export default async function handler(req, res) {
         const { plantId, month } = req.query;
         if (!plantId || !month) return res.status(400).json({ error: 'plantId e month obrigatórios' });
 
-        // Formato: YYYY-MM → YYYYMM
         const monthFormatted = month.replace(/-/g, '');
-        const path = `/pro/getStationEnergyByMonth?token=${token}&apikey=${plantId}&date=${monthFormatted}`;
-        const data = await apiGet(path, appKey, appSecret);
+        const endpoints = [
+          `/pro/getPlanEnergyByMonth?token=${token}&apikey=${plantId}&date=${monthFormatted}`,
+          `/pro/getPlantEnergyMonth?token=${token}&apikey=${plantId}&date=${monthFormatted}`,
+          `/pro/getPlanListPro?order=0&pageNum=1&pageSize=50&token=${token}`,
+        ];
 
-        const energy = parseFloat(
-          data?.data?.emonth ?? data?.data?.energy    ??
-          data?.data?.monthEnergy ?? data?.data?.eMonth ??
-          data?.data?.result?.emonth ?? data?.data?.result?.energy ?? 0
-        );
-        return res.status(200).json({ ok: true, energy, raw: data?.data });
+        for (const path of endpoints) {
+          try {
+            const data = await apiGet(path, appKey, appSecret);
+            if (path.includes('getPlanListPro')) {
+              const plants = data?.data?.result ?? [];
+              const plant = plants.find(p => p.apikey === plantId);
+              if (plant) {
+                const curMonth = new Date().toISOString().slice(0,7);
+                const energy = month === curMonth ? parseFloat(plant.emonth ?? 0) : 0;
+                return res.status(200).json({ ok: true, energy, source: 'emonth' });
+              }
+            }
+            const energy = parseFloat(
+              data?.data?.emonth ?? data?.data?.energy ??
+              data?.data?.monthEnergy ?? data?.data?.eMonth ?? 0
+            );
+            if (energy > 0) return res.status(200).json({ ok: true, energy });
+          } catch(e) { /* tenta próximo */ }
+        }
+        return res.status(200).json({ ok: true, energy: 0 });
       }
 
       // ── Alarmes de uma planta específica ─────────────────
