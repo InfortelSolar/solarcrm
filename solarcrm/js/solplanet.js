@@ -17,9 +17,8 @@ const SolPlanet = (() => {
     'dd11bb2be8f14b62a2e398077ebad94d': '5354222', // Wellington Alcantara
     '97858572bd4e4df3bc57e6a96ba20d93': '5060440', // Edenilton José
     '5a6e067e5e6a424a8b5e1afb16913022': '5464642', // Silvan Gomes
-    // Plantas novas — confirmar apikey via /api/solplanet?action=plants
-    // 'APIKEY_ELIO':  '5481932', // Élio Gomes de Arruda
-    // 'APIKEY_ELTON': '5487826', // Elton Luiz Araújo Ferreira
+    '65a5326fd3684d0ebd3897c55bfb2009': '5481932', // Élio Gomes de Arruda
+    'bd001628745f4b8b9474d1a576347939': '5487826', // Elton Luiz Araújo Ferreira
   };
 
   function getPlantId(apikey) {
