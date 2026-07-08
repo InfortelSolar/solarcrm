@@ -23,27 +23,26 @@ async function getPortalCookie() {
     isReadPact: '0', changeNotice: '0', lang: 'en', type: '1', passwordCrc: '',
   });
 
-  const res = await fetch(`${PORTAL_SERVER}/login`, {
+  // Login direto no server.growatt.com
+  const res = await fetch(`${PORTAL_DATA}/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Referer': `${PORTAL_DATA}/login`,
+      'Origin': PORTAL_DATA,
+    },
     body: body.toString(),
-    redirect: 'manual',
+    redirect: 'follow',
     signal: AbortSignal.timeout(15000),
   });
 
   const text = await res.text();
-  console.log('[Growatt Portal Login]', res.status, text.slice(0, 200));
+  console.log('[Growatt Login server]', res.status, res.url, text.slice(0, 150));
 
-  // Extrai cookies da resposta
   const setCookies = res.headers.getSetCookie?.() || [];
   const cookieStr  = setCookies.map(c => c.split(';')[0]).join('; ');
-  if (!cookieStr) throw new Error(`Growatt portal login falhou — sem cookie. Status: ${res.status}. Body: ${text.slice(0,100)}`);
-
-  // Verifica se o login foi bem sucedido
-  try {
-    const json = JSON.parse(text);
-    if (json.result === -1 || json.result === 0) throw new Error(`Login rejeitado: ${JSON.stringify(json)}`);
-  } catch(_) {}
+  if (!cookieStr) throw new Error(`Login falhou — sem cookie. Body: ${text.slice(0,150)}`);
 
   _portalCache = { cookie: cookieStr, expiresAt: now + 25 * 60 * 1000 };
   return cookieStr;
