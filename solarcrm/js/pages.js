@@ -397,8 +397,8 @@ const Pages = {
       const week  = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
       const start = document.getElementById('hist-date-start');
       const end   = document.getElementById('hist-date-end');
-      if (start && !start.value) start.value = week;
-      if (end   && !end.value)   end.value   = today;
+      if (start) start.value = week;
+      if (end)   end.value   = today;
       document.querySelectorAll('.hist-periodo').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
     }
