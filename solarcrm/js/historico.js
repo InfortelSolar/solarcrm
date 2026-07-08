@@ -116,13 +116,25 @@ const Historico = (() => {
   }
 
   // ── SolPlanet ────────────────────────────────────────────────
-  async function fetchSolPlanet(plantId, periodo) {
+  async function fetchSolPlanet(cliente, periodo) {
+    const plantId = cliente.plantIdPortal || (typeof SolPlanet !== 'undefined' ? SolPlanet.getPlantId(cliente.id) : null);
+    if (!plantId) return null;
+
     try {
-      if (periodo === '7d' || periodo === '30d') {
-        const dias = periodo === '7d' ? ultimosDias(7) : ultimosDias(30);
+      if (periodo === '7d') {
+        const today = new Date().toISOString().slice(0, 10);
+        const res   = await fetch(`/api/solplanet?action=week&plantId=${plantId}&date=${today}`);
+        const json  = await res.json();
+        if (json.ok && json.dates?.length > 0) {
+          const dates  = json.dates.slice(-7);
+          const values = json.values.slice(-7);
+          return { labels: dates.map(labelDia), data: values.map(v => parseFloat(v || 0)), datas: dates };
+        }
+      } else if (periodo === '30d') {
+        const dias = ultimosDias(30);
         const valores = await Promise.all(dias.map(async (iso) => {
           try {
-            const res = await fetch(`/api/solplanet?action=dayEnergy&plantId=${plantId}&date=${iso}`);
+            const res  = await fetch(`/api/solplanet?action=dayEnergy&plantId=${plantId}&date=${iso}`);
             const json = await res.json();
             return parseFloat(json.energy ?? 0);
           } catch { return 0; }
@@ -132,14 +144,15 @@ const Historico = (() => {
         const meses = ultimosMeses(12);
         const valores = await Promise.all(meses.map(async (iso) => {
           try {
-            const res = await fetch(`/api/solplanet?action=monthEnergy&plantId=${plantId}&month=${iso}`);
+            const res  = await fetch(`/api/solplanet?action=monthEnergy&plantId=${plantId}&month=${iso}`);
             const json = await res.json();
             return parseFloat(json.energy ?? 0);
           } catch { return 0; }
         }));
         return { labels: meses.map(labelMes), data: valores, datas: meses };
       }
-    } catch(e) { console.warn('[Historico/SolPlanet]', e.message); return null; }
+    } catch(e) { console.warn('[Historico/SolPlanet]', e.message); }
+    return null;
   }
 
   // ── Fallback simulado ─────────────────────────────────────────
@@ -165,7 +178,7 @@ const Historico = (() => {
     if (fab.includes('fronius'))   resultado = await fetchFronius(cliente.id, periodo);
     else if (fab.includes('solis'))     resultado = await fetchSolis(cliente.id, periodo);
     else if (fab.includes('growatt'))   resultado = await fetchGrowatt(cliente.id, periodo);
-    else if (fab.includes('solplanet')) resultado = await fetchSolPlanet(cliente.id, periodo);
+    else if (fab.includes('solplanet')) resultado = await fetchSolPlanet(cliente, periodo);
     if (!resultado) resultado = gerarHistoricoSimulado(cliente, periodo);
     return resultado;
   }
