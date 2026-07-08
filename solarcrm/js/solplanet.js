@@ -11,12 +11,15 @@ const SolPlanet = (() => {
   // Obtido via portal internation-pro-cloud.solplanet.net (?stationId=XXXXX)
   const PLANT_ID_MAP = {
     '3a0def787a464b65a75ea572a1dba84c': '5050505', // Maria de Fátima
-    '1dbc3a2ad7b34cd29fa5dedbfbdba7a1': '5161012', // CLINICA ST ANTONIO
-    '5176feb972004a048c78775332c1962c': '5060440', // Adriano Lins
+    '1dbc3a2ad7b34cd29fa5dedbfbdba7a1': '5052194', // CLINICA ST ANTONIO
+    '5176feb972004a048c78775332c1962c': '5161012', // Adriano Lins
     'e34376b18c2b4a29824e08860efe3da6': '5062501', // Joselio Alves
     'dd11bb2be8f14b62a2e398077ebad94d': '5354222', // Wellington Alcantara
-    '97858572bd4e4df3bc57e6a96ba20d93': '5052194', // Edenilton José
+    '97858572bd4e4df3bc57e6a96ba20d93': '5060440', // Edenilton José
     '5a6e067e5e6a424a8b5e1afb16913022': '5464642', // Silvan Gomes
+    // Plantas novas — confirmar apikey via /api/solplanet?action=plants
+    // 'APIKEY_ELIO':  '5481932', // Élio Gomes de Arruda
+    // 'APIKEY_ELTON': '5487826', // Elton Luiz Araújo Ferreira
   };
 
   function getPlantId(apikey) {
