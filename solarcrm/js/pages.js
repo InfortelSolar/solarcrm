@@ -326,10 +326,28 @@ const Pages = {
             <div class="card-title">Histórico de geração</div>
             <span id="hist-simulado-badge" style="display:none;background:#FFF3CD;color:#856404;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;">Estimado</span>
           </div>
-          <div style="display:flex;gap:6px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             <button class="btn btn-sm hist-periodo active" data-periodo="7d" onclick="Pages._setPeriodo('${c.id}', '7d', this)">7 dias</button>
             <button class="btn btn-sm hist-periodo" data-periodo="30d" onclick="Pages._setPeriodo('${c.id}', '30d', this)">30 dias</button>
             <button class="btn btn-sm hist-periodo" data-periodo="12m" onclick="Pages._setPeriodo('${c.id}', '12m', this)">12 meses</button>
+            <button class="btn btn-sm hist-periodo" data-periodo="custom" onclick="Pages._toggleCustomPeriodo('${c.id}', this)">📅 Personalizado</button>
+          </div>
+        </div>
+
+        <!-- Painel período personalizado -->
+        <div id="hist-custom-panel" style="display:none;padding:12px 16px;background:var(--bg-secondary);border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap;align-items:flex-end;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <div>
+              <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px;">De</label>
+              <input type="date" id="hist-date-start" style="padding:6px 10px;border:1px solid var(--border-med);border-radius:8px;font-size:13px;background:var(--bg-primary);color:var(--text-primary);" />
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px;">Até</label>
+              <input type="date" id="hist-date-end" style="padding:6px 10px;border:1px solid var(--border-med);border-radius:8px;font-size:13px;background:var(--bg-primary);color:var(--text-primary);" />
+            </div>
+            <button class="btn btn-sm btn-teal" onclick="Pages._applyCustomPeriodo('${c.id}')">
+              <i class="ti ti-search"></i> Buscar
+            </button>
           </div>
         </div>
 
@@ -368,7 +386,37 @@ const Pages = {
     setTimeout(() => Historico.renderizar(c, '7d'), 50);
   },
 
+  _toggleCustomPeriodo(clienteId, btn) {
+    const panel = document.getElementById('hist-custom-panel');
+    if (!panel) return;
+    const isOpen = panel.style.display === 'flex';
+    panel.style.display = isOpen ? 'none' : 'flex';
+    if (!isOpen) {
+      // Define datas padrão: últimos 7 dias
+      const today = new Date().toISOString().slice(0, 10);
+      const week  = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+      const start = document.getElementById('hist-date-start');
+      const end   = document.getElementById('hist-date-end');
+      if (start && !start.value) start.value = week;
+      if (end   && !end.value)   end.value   = today;
+      document.querySelectorAll('.hist-periodo').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  },
+
+  _applyCustomPeriodo(clienteId) {
+    const start = document.getElementById('hist-date-start')?.value;
+    const end   = document.getElementById('hist-date-end')?.value;
+    if (!start || !end) { App.toast('Selecione as datas!', 'warn'); return; }
+    if (start > end) { App.toast('Data inicial deve ser antes da final!', 'warn'); return; }
+    const c = DB.getCliente(clienteId);
+    if (c) Historico.renderizar(c, `custom:${start}:${end}`);
+  },
+
   _setPeriodo(clienteId, periodo, btn) {
+    // Fecha painel personalizado
+    const panel = document.getElementById('hist-custom-panel');
+    if (panel) panel.style.display = 'none';
     // Atualiza botões ativos
     document.querySelectorAll('.hist-periodo').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
