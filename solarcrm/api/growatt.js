@@ -30,10 +30,19 @@ async function getPortalCookie() {
     signal: AbortSignal.timeout(15000),
   });
 
+  const text = await res.text();
+  console.log('[Growatt Portal Login]', res.status, text.slice(0, 200));
+
   // Extrai cookies da resposta
   const setCookies = res.headers.getSetCookie?.() || [];
   const cookieStr  = setCookies.map(c => c.split(';')[0]).join('; ');
-  if (!cookieStr) throw new Error('Growatt portal login falhou — sem cookie');
+  if (!cookieStr) throw new Error(`Growatt portal login falhou — sem cookie. Status: ${res.status}. Body: ${text.slice(0,100)}`);
+
+  // Verifica se o login foi bem sucedido
+  try {
+    const json = JSON.parse(text);
+    if (json.result === -1 || json.result === 0) throw new Error(`Login rejeitado: ${JSON.stringify(json)}`);
+  } catch(_) {}
 
   _portalCache = { cookie: cookieStr, expiresAt: now + 25 * 60 * 1000 };
   return cookieStr;
