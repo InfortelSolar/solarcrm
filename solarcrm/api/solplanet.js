@@ -21,7 +21,7 @@ async function getPortalToken() {
   const res = await fetch(`${PORTAL_URL}/api/user/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'localE': 'pt_BR' },
-    body: JSON.stringify({ account: email, password, loginType: 0 }),
+    body: JSON.stringify({ account: email, pwd: password, type: 'account' }),
     signal: AbortSignal.timeout(15000),
   });
 
