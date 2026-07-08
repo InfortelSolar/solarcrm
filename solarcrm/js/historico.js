@@ -126,9 +126,17 @@ const Historico = (() => {
         const res   = await fetch(`/api/solplanet?action=week&plantId=${plantId}&date=${today}`);
         const json  = await res.json();
         if (json.ok && json.dates?.length > 0) {
-          const dates  = json.dates.slice(-7);
-          const values = json.values.slice(-7);
-          return { labels: dates.map(labelDia), data: values.map(v => parseFloat(v || 0)), datas: dates };
+          // Filtra apenas os últimos 7 dias reais
+          const allDates  = json.dates || [];
+          const allValues = json.values || [];
+          const last7 = ultimosDias(7);
+          const filtDates  = [], filtValues = [];
+          last7.forEach(d => {
+            const idx = allDates.indexOf(d);
+            filtDates.push(d);
+            filtValues.push(idx >= 0 ? parseFloat(allValues[idx] || 0) : 0);
+          });
+          return { labels: filtDates.map(labelDia), data: filtValues, datas: filtDates };
         }
       } else if (periodo === '30d') {
         const dias = ultimosDias(30);
@@ -212,6 +220,7 @@ const Historico = (() => {
     } else if (fab.includes('solplanet')) {
       const plantId = cliente.plantIdPortal || (typeof SolPlanet !== 'undefined' ? SolPlanet.getPlantId(cliente.id) : null);
       if (plantId) {
+        // Busca dia a dia via dayEnergy (usa portal week internamente)
         valores = await Promise.all(dias.map(async (iso) => {
           try {
             const res  = await fetch(`/api/solplanet?action=dayEnergy&plantId=${plantId}&date=${iso}`);
