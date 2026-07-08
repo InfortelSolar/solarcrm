@@ -4,7 +4,8 @@
 // ============================================================
 
 const SERVER        = 'https://openapi.growatt.com';
-const PORTAL_SERVER = 'https://oss.growatt.com';
+const PORTAL_SERVER  = 'https://oss.growatt.com';
+const PORTAL_DATA    = 'https://server.growatt.com';
 
 let _portalCache = { cookie: null, expiresAt: 0 };
 
@@ -51,7 +52,7 @@ async function getPortalCookie() {
 async function portalPost(path, params) {
   const cookie = await getPortalCookie();
   const body   = new URLSearchParams(params);
-  const res    = await fetch(`${PORTAL_SERVER}${path}`, {
+  const res    = await fetch(`${PORTAL_DATA}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type':     'application/x-www-form-urlencoded',
