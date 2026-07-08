@@ -72,7 +72,7 @@ const SolPlanet = (() => {
   }
 
   function plantToInversor(p, idx) {
-    const st = p.status === 'normal' ? 'ok' : p.status === 'warning' ? 'warn' : 'err';
+    const st = p.status === 'normal' ? 'ok' : p.status === 'warning' ? 'warn' : 'warn';
     return {
       id: p.id, sigla: 'SP',
       bgCol: '#EEF2FF', txtCol: '#3730A3',
@@ -81,7 +81,7 @@ const SolPlanet = (() => {
       serial: (p.id || '').slice(0,8).toUpperCase(),
       api: 'SolPlanet Cloud',
       status: st,
-      statusLabel: st === 'ok' ? 'Online' : st === 'err' ? 'Alarme' : 'Offline',
+      statusLabel: st === 'ok' ? 'Online' : 'Offline',
       geracaoHoje: parseFloat(p.etodayKwh) || 0,
       temp: st === 'ok' ? (34 + (idx % 10)) : null,
       fonte: 'solplanet',
@@ -89,12 +89,11 @@ const SolPlanet = (() => {
   }
 
   function plantToAlerta(p) {
-    const isAlarme = p.status === 'error';
     return {
-      id: p.id, tipo: isAlarme ? 'err' : 'warn',
-      tipoAlerta: isAlarme ? 'alarme' : 'offline',
-      icon: isAlarme ? 'ti-alert-circle' : 'ti-wifi-off',
-      titulo: `${p.name}: ${isAlarme ? 'Alarme ativo no inversor' : 'Sistema offline'}`,
+      id: p.id, tipo: 'warn',
+      tipoAlerta: 'offline',
+      icon: 'ti-wifi-off',
+      titulo: `${p.name}: Sistema offline`,
       detalhe: `SolPlanet · ${p.powerKw} kWp · ${p.lastUpdate || ''}`,
       acao: 'Diagnosticar',
     };
