@@ -7,15 +7,29 @@ const SolPlanet = (() => {
   let _cacheTime = 0;
   const CACHE_TTL = 5 * 60 * 1000;
 
+  // Mapeamento apikey → plantId numérico do portal
+  // Obtido via portal internation-pro-cloud.solplanet.net (?stationId=XXXXX)
+  const PLANT_ID_MAP = {
+    '3a0def787a464b65a75ea572a1dba84c': '5050505', // Maria de Fátima
+    '1dbc3a2ad7b34cd29fa5dedbfbdba7a1': '5161012', // CLINICA ST ANTONIO
+    '5176feb972004a048c78775332c1962c': '5060440', // Adriano Lins
+    'e34376b18c2b4a29824e08860efe3da6': '5062501', // Joselio Alves
+    'dd11bb2be8f14b62a2e398077ebad94d': '5354222', // Wellington Alcantara
+    '97858572bd4e4df3bc57e6a96ba20d93': '5052194', // Edenilton José
+    '5a6e067e5e6a424a8b5e1afb16913022': '5464642', // Silvan Gomes
+  };
+
+  function getPlantId(apikey) {
+    return PLANT_ID_MAP[apikey] || null;
+  }
+
   async function fetchPlants() {
     const now = Date.now();
     if (_cache && now - _cacheTime < CACHE_TTL) return _cache;
-
     const res = await fetch('/api/solplanet?action=summary');
     if (!res.ok) throw new Error(`SolPlanet API error: ${res.status}`);
     const json = await res.json();
     if (!json.success) throw new Error('SolPlanet retornou success=false');
-
     _cache     = json.plants;
     _cacheTime = now;
     return _cache;
@@ -32,13 +46,11 @@ const SolPlanet = (() => {
 
     return {
       id: p.id,
+      plantIdPortal: getPlantId(p.id), // ID numérico para histórico
       iniciais: initials,
-      avBg: bgMap[st],
-      avCor: corMap[st],
-      nome: p.name,
-      tipo: 'Solar',
-      endereco: p.address || '',
-      email: '', whats: '',
+      avBg: bgMap[st], avCor: corMap[st],
+      nome: p.name, tipo: 'Solar',
+      endereco: p.address || '', email: '', whats: '',
       dataInstalacao: '',
       tarifa: 0.82,
       potencia: power,
@@ -46,8 +58,8 @@ const SolPlanet = (() => {
       inversor: 'SolPlanet',
       status: st,
       statusLabel: st === 'err' ? 'Crítico' : st === 'warn' ? 'Offline' : 'Normal',
-      geracaoHoje:  parseFloat(p.etodayKwh)  || 0,
-      geracaoMes:   parseFloat(p.etotalKwh)  || 0,
+      geracaoHoje:  parseFloat(p.etodayKwh) || 0,
+      geracaoMes:   parseFloat(p.etotalKwh) || 0,
       metaMes: meta,
       hist12: [0,0,0,0,0,0,0,0,0,0,0,0],
       performance: perf,
@@ -60,8 +72,7 @@ const SolPlanet = (() => {
   function plantToInversor(p, idx) {
     const st = p.status === 'normal' ? 'ok' : p.status === 'warning' ? 'warn' : 'err';
     return {
-      id: p.id,
-      sigla: 'SP',
+      id: p.id, sigla: 'SP',
       bgCol: '#EEF2FF', txtCol: '#3730A3',
       modelo: `SolPlanet ${parseFloat(p.powerKw).toFixed(2)} kWp`,
       cliente: p.name,
@@ -77,10 +88,9 @@ const SolPlanet = (() => {
 
   function plantToAlerta(p) {
     const isAlarme = p.status === 'error';
-    const tipo = isAlarme ? 'err' : 'warn';
-    const tipoAlerta = isAlarme ? 'alarme' : 'offline';
     return {
-      id: p.id, tipo, tipoAlerta,
+      id: p.id, tipo: isAlarme ? 'err' : 'warn',
+      tipoAlerta: isAlarme ? 'alarme' : 'offline',
       icon: isAlarme ? 'ti-alert-circle' : 'ti-wifi-off',
       titulo: `${p.name}: ${isAlarme ? 'Alarme ativo no inversor' : 'Sistema offline'}`,
       detalhe: `SolPlanet · ${p.powerKw} kWp · ${p.lastUpdate || ''}`,
@@ -91,7 +101,6 @@ const SolPlanet = (() => {
   async function load() {
     try {
       const plants = await fetchPlants();
-
       let online = 0, offline = 0, warning = 0;
       let totalEnergyDay = 0, totalEnergyMonth = 0;
       const alerts = [];
@@ -100,10 +109,8 @@ const SolPlanet = (() => {
         if (p.status === 'normal')       online++;
         else if (p.status === 'warning') warning++;
         else                             offline++;
-
         totalEnergyDay   += parseFloat(p.etodayKwh) || 0;
         totalEnergyMonth += parseFloat(p.etotalKwh) || 0;
-
         if (p.status !== 'normal') alerts.push(p);
       }
 
@@ -116,17 +123,12 @@ const SolPlanet = (() => {
       DB.dashKpis.geracaoHoje    = parseFloat(((DB.dashKpis.geracaoHoje || 0) + totalEnergyDay).toFixed(2));
       DB.dashKpis.economiaMes    = (DB.dashKpis.economiaMes || 0) + Math.round(totalEnergyMonth * 0.82);
 
-      console.log('[SolPlanet] OK:', {
-        total:    plants.length,
-        online, offline, warning,
-        alertas:  alerts.length,
-        energyDay: totalEnergyDay.toFixed(1) + ' kWh',
-      });
+      console.log('[SolPlanet] OK:', { total: plants.length, online, offline, warning, alertas: alerts.length, energyDay: totalEnergyDay.toFixed(1) + ' kWh' });
 
     } catch (err) {
       console.warn('[SolPlanet] Falha ao carregar:', err.message);
     }
   }
 
-  return { fetchPlants, plantToCliente, plantToInversor, plantToAlerta, load };
+  return { fetchPlants, plantToCliente, plantToInversor, plantToAlerta, load, getPlantId };
 })();
