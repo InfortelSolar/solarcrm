@@ -171,11 +171,76 @@ const Historico = (() => {
     }
   }
 
+  // ── Histórico por período personalizado ─────────────────────
+  async function fetchCustom(cliente, startDate, endDate) {
+    const fab = (cliente.inversor || '').toLowerCase();
+    const dias = [];
+    let cur = new Date(startDate);
+    const end = new Date(endDate);
+    while (cur <= end) {
+      dias.push(cur.toISOString().slice(0, 10));
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    let valores = [];
+
+    if (fab.includes('fronius')) {
+      valores = await Promise.all(dias.map(async (iso) => {
+        const [y,m,d] = iso.split('-');
+        try {
+          const res  = await fetch(`/api/fronius?pvSystemId=${cliente.id}&year=${y}&month=${parseInt(m)}&day=${parseInt(d)}`);
+          const json = await res.json();
+          return parseFloat(json.eToday_kWh ?? 0);
+        } catch { return 0; }
+      }));
+    } else if (fab.includes('solis')) {
+      valores = await Promise.all(dias.map(async (iso) => {
+        try {
+          const res  = await fetch(`/api/solis?history=1&stationId=${cliente.id}&date=${iso}`);
+          const json = await res.json();
+          return parseFloat(json.energy ?? 0);
+        } catch { return 0; }
+      }));
+    } else if (fab.includes('growatt')) {
+      try {
+        const res  = await fetch(`/api/growatt?historyPlantId=${cliente.id}&startDate=${startDate}&endDate=${endDate}&timeUnit=day`);
+        const json = await res.json();
+        const map  = {};
+        (json.data || []).forEach(d => { map[d.date] = parseFloat(d.energy ?? 0); });
+        valores = dias.map(d => map[d] ?? 0);
+      } catch { valores = dias.map(() => 0); }
+    } else if (fab.includes('solplanet')) {
+      const plantId = cliente.plantIdPortal || (typeof SolPlanet !== 'undefined' ? SolPlanet.getPlantId(cliente.id) : null);
+      if (plantId) {
+        valores = await Promise.all(dias.map(async (iso) => {
+          try {
+            const res  = await fetch(`/api/solplanet?action=dayEnergy&plantId=${plantId}&date=${iso}`);
+            const json = await res.json();
+            return parseFloat(json.energy ?? 0);
+          } catch { return 0; }
+        }));
+      } else {
+        valores = dias.map(() => 0);
+      }
+    } else {
+      valores = dias.map(() => 0);
+    }
+
+    return { labels: dias.map(labelDia), data: valores, datas: dias };
+  }
+
   // ── Entry point ───────────────────────────────────────────────
   async function buscar(cliente, periodo) {
     const fab = (cliente.inversor || '').toLowerCase();
     let resultado = null;
-    if (fab.includes('fronius'))   resultado = await fetchFronius(cliente.id, periodo);
+
+    // Período personalizado
+    if (periodo.startsWith('custom:')) {
+      const [, startDate, endDate] = periodo.split(':');
+      return await fetchCustom(cliente, startDate, endDate);
+    }
+
+    if (fab.includes('fronius'))        resultado = await fetchFronius(cliente.id, periodo);
     else if (fab.includes('solis'))     resultado = await fetchSolis(cliente.id, periodo);
     else if (fab.includes('growatt'))   resultado = await fetchGrowatt(cliente.id, periodo);
     else if (fab.includes('solplanet')) resultado = await fetchSolPlanet(cliente, periodo);
