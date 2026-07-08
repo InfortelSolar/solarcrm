@@ -54,15 +54,17 @@ async function portalPost(path, params) {
   const res    = await fetch(`${PORTAL_SERVER}${path}`, {
     method: 'POST',
     headers: {
-      'Content-Type':    'application/x-www-form-urlencoded',
+      'Content-Type':     'application/x-www-form-urlencoded',
       'X-Requested-With': 'XMLHttpRequest',
-      'Cookie':          cookie,
+      'Cookie':           cookie,
+      'Referer':          `${PORTAL_SERVER}/index`,
     },
     body: body.toString(),
     signal: AbortSignal.timeout(15000),
   });
-  if (!res.ok) throw new Error(`Portal ${path} HTTP ${res.status}`);
-  return res.json();
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e) { throw new Error(`Portal ${path} retornou HTML (${res.status}): ${text.slice(0,200)}`); }
 }
 
 function normalizePlant(p) {
