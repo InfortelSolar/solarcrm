@@ -4,7 +4,7 @@
 // ============================================================
 
 const SERVER        = 'https://openapi.growatt.com';
-const PORTAL_SERVER = 'https://server.growatt.com';
+const PORTAL_SERVER = 'https://oss.growatt.com';
 
 let _portalCache = { cookie: null, expiresAt: 0 };
 
